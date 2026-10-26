@@ -1,0 +1,888 @@
+# GITVOX: COMPLETE WEBSITE AND APPLICATION GENERATION
+
+## 1. ROLE AND OBJECTIVE
+
+Act as a senior full-stack engineer, product architect, design director, and security-conscious AI application developer.
+
+Build **Gitvox**, a voice-first AI code-understanding and pull-request review platform.
+
+**Tagline:** Your code. Your voice. Your clarity.
+
+Gitvox enables developers to upload source code, explore unfamiliar repositories, understand project architecture, explain individual files and functions, and review pull requests through conversational AI and voice interaction.
+
+Build a complete, usable application, not a static mockup or a collection of disconnected screens.
+
+The product must include a public homepage, code-upload flow, project exploration workspace, pull-request review workspace, contextual AI explanations, and a voice interaction interface designed for Alan AI integration.
+
+Use the project requirements and supplied resources as the source of truth. In particular, follow the provided anti-generic frontend design framework: define intentional visual hierarchy, avoid repetitive layouts, use motion selectively, preserve accessibility, and audit the result before completion.
+
+Do not begin with generic SaaS templates. Make deliberate product, layout, and interaction decisions.
+
+## 2. PRODUCT REQUIREMENTS
+
+### Main problem
+
+Developers spend considerable time understanding unfamiliar codebases, navigating relationships between files, following complex logic, and reviewing pull requests. Generic chat interfaces require users to repeatedly copy and paste code and often lack contextual navigation.
+
+### Solution
+
+Gitvox combines:
+
+- Project-level code understanding.
+- File and function explanations.
+- Interactive source-code exploration.
+- Pull-request diff inspection.
+- Contextual AI review findings.
+- Voice-first navigation and questions through Alan AI.
+- Text-based interaction as a reliable fallback.
+
+### Target users
+
+- Students learning software development.
+- Junior and mid-level developers.
+- Open-source contributors.
+- Developers onboarding to unfamiliar repositories.
+- Engineers reviewing pull requests.
+- Small development teams.
+
+### Core user journey
+
+1. A visitor opens the Gitvox homepage.
+2. The visitor selects **Start Exploring Code**.
+3. The user uploads a supported source file, uploads a ZIP archive, or opens the built-in sample project.
+4. Gitvox validates the input and displays the project workspace.
+5. The user explores files, reads source code, and asks contextual questions.
+6. The user opens the sample pull-request review experience.
+7. The user inspects actual sample diffs and contextual review suggestions.
+8. The user interacts through text commands or Alan AI when the integration is configured.
+
+The entire journey must work from beginning to end using the built-in sample data, even when external API credentials are unavailable.
+
+## 3. MANDATORY DESIGN DIRECTION
+
+Use a distinctive **black, blue, and neon-red visual identity**.
+
+This palette is a core branding requirement, not an optional suggestion.
+
+### Color system
+
+Use these initial design tokens, refining their exact shades only when necessary to maintain contrast and consistency:
+
+- Primary background: #080A0F
+- Secondary background: #0D111A
+- Elevated surface: #121926
+- Subtle borders: #263247
+- Primary blue accent: #397BFF
+- Bright blue interaction accent: #5EA1FF
+- Neon red accent: #FF294F
+- Soft neon-red highlight: #FF526F
+- Primary text: #F1F5FC
+- Secondary text: #A0AEC2
+- Muted text: #77849A
+- Addition/success: #39D98A
+- Warning: #F5B84B
+- Deletion: #FF526F
+
+Use black and charcoal as the dominant surfaces, blue for primary actions and navigation, and neon red selectively for emphasis, destructive actions, important review findings, and brand identity.
+
+Neon red must not be used indiscriminately. Preserve its visual impact by using it for meaningful emphasis rather than every border, icon, or heading.
+
+Use green for code additions and successful states even though neon red is the primary brand highlight. This preserves familiar code-review conventions.
+
+Define reusable CSS variables for the palette, spacing, typography, borders, focus states, and interactive states. Avoid scattered, inconsistent hardcoded values.
+
+### Brand identity
+
+Create a recognizable Gitvox wordmark and a compact logo mark using CSS or inline SVG.
+
+The logo may combine a subtle sound-wave motif with a code-related symbol, provided the result remains simple and readable at small sizes.
+
+Use the tagline:
+
+"Your code. Your voice. Your clarity."
+
+Do not rely on unavailable logo assets.
+
+### Anti-generic UI requirements
+
+Study and apply the principles from the supplied resource, "Beyond 'Make it Beautiful': The Anti-Slop Framework for AI Frontend Craftsmanship."
+
+Use its central workflow:
+
+Design strategy → Layout constraints → Production implementation → Motion polish → Quality audit.
+
+Explicitly avoid:
+
+- Generic purple-blue gradient backgrounds.
+- Centered hero sections with a badge, headline, and three identical cards.
+- Repeated three-column feature grids.
+- Excessive nested cards.
+- Decorative floating icon pills.
+- Fake dashboards and fabricated metrics.
+- Unnecessary glassmorphism and glowing containers.
+- Excessive rounded corners and shadows.
+- Generic headings and overused default font combinations.
+- Large empty sections that add no useful information.
+- Fake terminal windows used as decoration.
+- Animations that make interactions slower.
+- Buttons that do nothing.
+- Placeholder content presented as a completed integration.
+
+Use intentional asymmetry, strong typography, carefully controlled density, meaningful negative space, precise alignment, and purposeful visual anchors.
+
+The marketing homepage can be expressive. The application workspace must remain efficient, readable, and information-dense.
+
+Use a refined sans-serif for interface text and a monospace font such as JetBrains Mono for code and technical metadata. Establish distinct typography tokens for page headings, section headings, body text, labels, and code.
+
+Use subtle transitions, generally 120–220 ms for frequent interactions. Avoid transition: all, animate transform and opacity where possible, and respect prefers-reduced-motion.
+
+## 4. TECHNICAL STACK AND ARCHITECTURE
+
+Use the simplest architecture that supports the actual product requirements.
+
+Required stack:
+
+- React with Vite.
+- JavaScript by default.
+- CSS or Tailwind CSS, depending on the existing project and generation environment.
+- React Router only if required for clear page navigation.
+- Lucide React for interface icons, if supported.
+- A reliable syntax-highlighting solution.
+- A reliable diff-generation library for comparing source versions.
+- Browser-side parsing for supported uploads where feasible.
+- A modular service layer for future AI, GitHub, and Alan AI integrations.
+
+Do not use Next.js.
+
+Do not introduce a database, authentication system, payment provider, or complex infrastructure for the initial hackathon MVP.
+
+Use reusable components with clear responsibilities. Separate sample data, file parsing, diff generation, command handling, and UI presentation.
+
+Suggested project structure:
+
+src/
+  components/
+    common/
+    layout/
+    homepage/
+    upload/
+    project/
+    diff/
+    review/
+    voice/
+  pages/
+    HomePage.jsx
+    StartExploringPage.jsx
+    ProjectWorkspacePage.jsx
+    PullRequestPage.jsx
+  data/
+    sampleProject.js
+    samplePullRequest.js
+    sampleFindings.js
+  services/
+    fileParser.js
+    diffService.js
+    aiService.js
+    githubService.js
+    alanVoiceService.js
+    commandRouter.js
+  hooks/
+  styles/
+    tokens.css
+    global.css
+  App.jsx
+  main.jsx
+
+Adapt the structure to the actual environment. Do not create empty files or split simple logic into unnecessary abstractions.
+
+Do not replace an existing project architecture blindly. If working in an established repository, inspect it first and preserve compatible working code.
+
+## 5. PAGE STRUCTURE
+
+### Page A: Public homepage
+
+Create a distinctive product homepage that immediately communicates the value of Gitvox.
+
+#### Header
+
+Include:
+
+- Gitvox logo and wordmark.
+- Product navigation.
+- How It Works.
+- Code Understanding.
+- Pull Request Review.
+- A primary "Start Exploring" CTA.
+
+Keep the header compact. Use a restrained dark background and precise alignment.
+
+All navigation items must lead to real sections or working routes. Do not create dead links.
+
+#### Hero section
+
+Use an editorial, asymmetric composition rather than a generic centered hero.
+
+Suggested direction:
+
+- Left side: concise product headline, supporting description, and primary action.
+- Right side: a genuine miniature Gitvox workspace preview showing a code diff and contextual explanation.
+
+Headline:
+
+"Understand code. Review smarter. Speak naturally."
+
+Supporting copy:
+
+"Explore unfamiliar projects, understand code changes, and investigate potential bugs through conversational AI."
+
+Primary CTA: "Start Exploring Code"
+
+Secondary CTA: "Try Sample Pull Request"
+
+The workspace preview must represent the actual product interface and its visual system. Prefer a real React component or a faithful live preview over a static decorative illustration.
+
+Use blue for primary action emphasis and neon red for one memorable brand accent. Do not place neon glow around every element.
+
+#### Product capabilities section
+
+Explain three capabilities using an asymmetric layout or a carefully composed feature arrangement:
+
+1. **Understand Any Project**
+   Explore files, trace logic, and learn how a codebase works.
+
+2. **Review Code Changes**
+   Inspect actual diffs, understand modifications, and investigate potential issues.
+
+3. **Talk to Your Code**
+   Use Alan AI voice interaction when configured, with text input as a fallback.
+
+Avoid three identical cards. Use varied visual hierarchy, relevant interface excerpts, or compact editorial sections.
+
+#### How it works
+
+Present the real user journey:
+
+1. Upload code or open a sample.
+2. Explore files and ask questions.
+3. Understand changes and review potential issues.
+
+Use concise explanations and meaningful visual steps.
+
+#### Product demonstration section
+
+Include an interactive preview or entry point that opens the built-in sample pull request.
+
+Do not fabricate customer testimonials, usage statistics, security certifications, or production integrations.
+
+#### Footer
+
+Include:
+
+- Gitvox identity.
+- Short product description.
+- Links to the product workspace and GitHub repository when the real URL exists.
+- Documentation or project information where implemented.
+- Appropriate open-source attribution.
+
+Do not invent repository URLs.
+
+### Page B: Start Exploring
+
+Provide a functional entry screen with three options:
+
+1. Upload source code.
+2. Upload a ZIP project.
+3. Open the built-in sample project.
+
+Show public GitHub repository import and pull-request import only when those integrations are available. Otherwise, label them as planned or unavailable without implying that they work.
+
+The sample project and sample pull request must remain accessible without an account.
+
+### Page C: Project understanding workspace
+
+Create a dedicated workspace for exploring a loaded project.
+
+Include:
+
+- Compact top navigation.
+- Project name and current source indicator.
+- Project overview.
+- File and folder explorer.
+- Searchable file tree.
+- Source-code viewer.
+- Syntax highlighting.
+- Readable line numbers.
+- Function-level explanation actions where feasible.
+- Contextual Ask Gitvox panel.
+- Text-input fallback.
+- Analysis status and honest scope indicators.
+
+The main workspace should prioritize code readability.
+
+Use a file explorer on the left, code viewer in the center, and contextual AI panel on the right for desktop layouts.
+
+Allow the side panels to collapse when necessary. On mobile, provide accessible navigation between Files, Code, and Ask Gitvox.
+
+### Page D: Pull-request review workspace
+
+Create a dedicated professional code-review interface.
+
+#### Top bar
+
+Show:
+
+- Gitvox identity.
+- Repository name.
+- Pull-request identifier.
+- Current review status.
+- Voice interaction control.
+
+#### Pull-request summary
+
+Use the built-in sample pull request:
+
+- Title: "Add token-based authentication middleware"
+- Repository: acme-platform/api-server
+- Pull request: #284
+- Author: Maya Chen
+- Source branch: feature/token-auth
+- Target branch: main
+- Status: Open
+- CI status: Passing, explicitly identified as sample data.
+- Files changed: 5
+- Additions: 86
+- Deletions: 24
+
+These values must be used consistently throughout the sample experience.
+
+Do not represent them as live GitHub metadata.
+
+#### Changed-file explorer
+
+Include five sample files:
+
+- src/middleware/auth.js
+- src/services/tokenService.js
+- src/routes/userRoutes.js
+- src/utils/validateToken.js
+- tests/auth.test.js
+
+Display realistic file paths, sample change counts, and review status.
+
+Implement functional file selection and search.
+
+#### Diff viewer
+
+Make the diff viewer the visual center of the application.
+
+Include:
+
+- File path.
+- Change counts.
+- Unified diff view.
+- Split diff view only if implemented correctly.
+- Syntax highlighting.
+- Line numbers.
+- Added, deleted, and unchanged lines.
+- Selected line or hunk state.
+- Contextual explanation action.
+- File-reviewed action.
+
+Generate sample diffs from explicit base and proposed source versions using a reliable diff implementation wherever practical.
+
+If the sample data contains precomputed diffs, ensure they accurately represent the stated base and proposed versions.
+
+Do not fabricate arbitrary line coloring and present it as a genuine code diff.
+
+#### AI review panel
+
+Show:
+
+- A concise explanation of the pull request.
+- The purpose of the changes.
+- Relevant review findings.
+- Severity indicators.
+- File and line references where supported.
+- Contextual explanations.
+- Uncertainty statements.
+
+Use realistic illustrative findings, clearly labelled as sample review content.
+
+Never claim that a sample finding is a verified vulnerability, a completed security scan, or a test result.
+
+Selecting a finding should navigate to the relevant file and code location when that location exists.
+
+#### Review progress
+
+Implement working per-file reviewed states and update the review progress count dynamically.
+
+Do not add decorative progress metrics unrelated to the actual sample data.
+
+## 6. FILE UPLOAD AND PROJECT PARSING
+
+Implement the initial upload experience without executing user-provided code.
+
+### Supported input
+
+Support:
+
+- Individual text-based source-code files.
+- ZIP archives containing a small project.
+- The built-in sample project.
+
+Accept common text-based formats such as JavaScript, TypeScript, JSX, TSX, Python, Java, C, C++, HTML, CSS, JSON, Markdown, and other explicitly supported source formats.
+
+Clearly communicate the supported formats and limits.
+
+Use an initial configurable per-file size limit of 2 MB and a configurable total extracted text limit of 10 MB. These are application limits, not claims about browser or platform capabilities.
+
+### ZIP handling
+
+Use a maintained ZIP-parsing library compatible with the application environment.
+
+Validate archive structure before parsing.
+
+- Reject malformed archives.
+- Reject unsupported or binary files with clear feedback.
+- Ignore or exclude dependency and generated directories such as node_modules, dist, build, .git, and other explicitly excluded directories.
+- Normalize archive paths.
+- Reject absolute paths and path traversal entries.
+- Limit file count and decompressed text size.
+- Avoid extracting files to a server or filesystem unless a later architecture explicitly requires it.
+- Never execute uploaded code, install project dependencies, or run scripts.
+
+Display upload progress where meaningful.
+
+Provide clear success, empty, unsupported-format, size-limit, and parsing-error states.
+
+If an archive exceeds the configured limits, explain how to reduce it rather than silently truncating the entire project.
+
+### Project representation
+
+Represent the parsed project as a structured in-memory collection of files and folders.
+
+Each file entry should contain only the metadata needed by the application, such as normalized relative path, filename, language, and source content.
+
+Do not claim that the application understands the complete project when only a subset of files has been loaded or analyzed.
+
+## 7. AI CODE UNDERSTANDING
+
+Build an isolated AI service layer.
+
+The service should eventually support:
+
+- Project overview generation.
+- File explanation.
+- Function explanation.
+- Code behavior questions.
+- Relevant cross-file questions.
+- Pull-request summaries.
+- Diff-hunk explanations.
+- Potential bug analysis.
+
+### Grounding requirements
+
+AI responses must be based on source code or diff context actually available to the application.
+
+For project-wide questions, retrieve relevant file content before sending the request to the model.
+
+For code explanations, provide the selected code and necessary surrounding context.
+
+For pull-request questions, distinguish the base version, proposed version, and changed lines.
+
+Do not automatically send an entire large project to a model in one request.
+
+For the MVP, support small projects using bounded context selection. If the project is too large for the available model context, explain the limitation and identify which files or areas were analyzed.
+
+AI findings should include, where practical:
+
+- Summary.
+- Explanation.
+- Severity.
+- Relevant file path.
+- Relevant line range.
+- Evidence from available source code.
+- Confidence or uncertainty information.
+
+Do not invent line numbers or claim that a model finding is confirmed without verification.
+
+### Model integration
+
+Use an eligible open-weight model that is actually available through the selected provider and permitted by the hackathon rules.
+
+Before implementing the integration, verify the provider, exact model identifier, endpoint, authentication mechanism, request format, output format, rate limits, and relevant billing or credit requirements.
+
+Do not invent model IDs, API endpoints, SDK methods, or entitlements.
+
+Keep the model provider configurable through a dedicated service interface.
+
+If model access requires a private API key, call the provider through a suitable server-side endpoint or managed backend function.
+
+Never embed secret credentials in browser-side JavaScript or Vite-exposed environment variables.
+
+Do not introduce a backend solely for architectural appearance. Introduce the minimum secure server-side integration required when private credentials or protected processing make it necessary.
+
+If no valid model credentials are configured, keep the sample experience usable and explicitly label demonstration responses as sample content. Do not silently substitute hardcoded responses while claiming live AI analysis.
+
+## 8. ALAN AI VOICE INTEGRATION
+
+Alan AI is a core product differentiator and a hackathon requirement.
+
+Design the application to support commands such as:
+
+- "Explain this project."
+- "Summarize this file."
+- "Explain the selected function."
+- "Show the authentication middleware."
+- "Explain this pull request."
+- "Summarize the changes."
+- "Check these changes for potential bugs."
+
+### Required behavior
+
+A recognized command must trigger the corresponding application action.
+
+Examples:
+
+- Selecting a file command changes the selected file.
+- An explanation command opens the contextual explanation.
+- A pull-request summary command opens or updates the summary view.
+- A review command invokes the configured AI analysis service when available.
+- An unsupported command returns useful feedback.
+
+Voice responses and AI results should appear in the application interface.
+
+Provide:
+
+- Clear voice-control state.
+- Listening and processing feedback where supported.
+- Microphone permission handling.
+- Permission-denied fallback.
+- Text-command input.
+- Error handling.
+- Accessible controls.
+
+### Integration rules
+
+Verify the current Alan AI SDK and supported integration method before writing integration code.
+
+Do not invent SDK methods or assume that a voice widget automatically controls application state.
+
+Create a dedicated voice adapter that translates recognized intents into application actions.
+
+Keep application commands independent from the voice provider so that typed commands and voice commands use the same action handlers.
+
+If Alan AI access or configuration is unavailable, implement the text command interface and clearly identify real voice activation as unavailable until configured.
+
+Do not simulate a live microphone or claim that real voice recognition works without a functioning integration.
+
+## 9. LOCAL COMMAND ROUTER
+
+Create a simple, testable command router for the demonstration experience.
+
+Use explicit patterns or deterministic keyword matching for a limited set of supported commands.
+
+Support:
+
+- Project summary.
+- File selection.
+- Selected-file explanation.
+- Pull-request summary.
+- Review-finding navigation.
+- Sample finding display.
+
+Use the same application actions for voice-triggered and text-triggered commands.
+
+Do not rely on vague keyword matching when it could cause a destructive or unrelated action.
+
+Provide an understandable fallback when a command cannot be interpreted.
+
+Do not present command-router responses as AI-generated analysis unless they actually come from the configured model.
+
+## 10. API AND GITHUB INTEGRATION BOUNDARIES
+
+Keep GitHub integration modular for later implementation.
+
+Potential future functionality includes:
+
+- Public repository import.
+- Public pull-request retrieval.
+- Base and proposed source retrieval.
+- Actual diff generation.
+- Repository metadata display.
+
+Do not add private repository access, GitHub OAuth, automatic pull-request comments, or broad repository permissions to the initial MVP.
+
+When a real GitHub integration is requested, verify the current official API documentation, supported endpoints, authentication requirements, rate limits, and permission scopes before implementation.
+
+Do not invent repository data or show sample metadata as live information.
+
+Keep the initial sample pull-request workflow independent of GitHub access.
+
+## 11. SECURITY AND PRIVACY
+
+Implement security controls appropriate to the actual architecture.
+
+Required controls:
+
+- Never execute uploaded source code.
+- Never run uploaded scripts or install uploaded dependencies.
+- Validate file extensions, file sizes, archive paths, and extracted content.
+- Reject path traversal and unsafe archive entries.
+- Limit archive processing and text parsing to avoid excessive memory use.
+- Avoid exposing API credentials.
+- Avoid logging complete source files or sensitive user content unnecessarily.
+- Communicate when source code is transmitted to an external AI provider.
+- Handle malformed input, model errors, rate limits, and network failures.
+- Use least-privilege access for any future GitHub integration.
+- Avoid persistent source-code storage unless explicitly implemented and disclosed.
+- Keep demonstration data separate from uploaded user content.
+
+Do not claim that source code remains local if the configured AI integration transmits it to an external provider.
+
+For the initial MVP, keep uploaded content in application memory where feasible and provide a clear way to reset the current workspace.
+
+## 12. STATE MANAGEMENT AND ERROR HANDLING
+
+Use React state and a simple context or equivalent mechanism only where shared state requires it.
+
+The application should manage:
+
+- Current route.
+- Loaded project.
+- Selected file.
+- Selected line or diff hunk.
+- Current pull request.
+- Review progress.
+- Open panels.
+- Voice state.
+- Current question.
+- AI response state.
+- Upload and parsing state.
+
+Provide distinct states for:
+
+- Idle.
+- Uploading.
+- Parsing.
+- Ready.
+- Analyzing.
+- Completed.
+- Failed.
+- Unsupported.
+- Unavailable integration.
+
+Do not display fake network requests or artificial loading delays for purely local actions.
+
+Handle errors at the appropriate boundary and display concise, actionable messages.
+
+## 13. NON-FUNCTIONAL REQUIREMENTS
+
+### Performance
+
+- Load the initial homepage without unnecessary heavy dependencies.
+- Avoid rendering every project file as a visible component at once.
+- Use bounded file parsing and analysis.
+- Keep interactions responsive.
+- Avoid unnecessary re-renders.
+- Lazy-load larger workspace routes when practical.
+- Do not add a large dependency solely for a decorative effect.
+
+### Accessibility
+
+- Use semantic HTML.
+- Provide keyboard navigation.
+- Include visible focus indicators.
+- Give icon-only buttons accessible labels.
+- Associate form labels correctly.
+- Maintain readable contrast.
+- Avoid communicating severity through color alone.
+- Support reduced-motion preferences.
+- Preserve usable keyboard interaction in the file explorer and diff viewer.
+
+### Maintainability
+
+- Use clear component boundaries.
+- Keep business logic outside presentation components where appropriate.
+- Use stable React keys.
+- Avoid duplicate implementations of shared actions.
+- Keep API integrations isolated.
+- Add comments only when they clarify non-obvious behavior.
+- Avoid unnecessary abstractions and overengineering.
+
+## 14. RESPONSIVE DESIGN
+
+### Desktop
+
+Use a carefully proportioned workspace with:
+
+- Left file explorer.
+- Central code viewer or diff.
+- Right contextual AI panel.
+
+The central code area should receive the largest share of available space.
+
+### Tablet
+
+Allow side panels to collapse or open contextually. Preserve code readability and essential navigation.
+
+### Mobile
+
+Use a manageable single-panel workspace with navigation between Files, Code, and Ask Gitvox or AI Review.
+
+Keep code horizontally scrollable rather than forcing long lines to wrap.
+
+Make upload, text input, voice controls, and contextual actions usable on touch screens.
+
+Ensure the public homepage and application routes do not produce unintended horizontal overflow.
+
+## 15. MONETIZATION AND SCOPE
+
+Gitvox is a free, open-source hackathon MVP.
+
+Do not implement:
+
+- Payment processing.
+- Subscription management.
+- User registration.
+- Authentication.
+- Billing dashboards.
+- Paid usage quotas.
+- Team administration.
+- Database persistence.
+- Automatic code execution.
+- Automatic pull-request comments.
+- A complete static-analysis or security-scanning engine.
+
+These are outside the initial scope.
+
+Focus on a working end-to-end experience, an accessible public demo, an eligible AI model, Alan AI voice interaction, and a public source repository.
+
+## 16. IMPLEMENTATION WORKFLOW
+
+Follow this sequence:
+
+### Phase 1: Inspect and plan
+
+Identify the capabilities of the generation environment and establish the smallest coherent application architecture.
+
+Define the visual design tokens, page structure, sample data, and shared state.
+
+Do not spend time producing a lengthy plan for approval. Proceed with implementation using the requirements in this prompt.
+
+### Phase 2: Build the public homepage
+
+Implement the homepage, responsive header, actual product preview, feature explanations, how-it-works section, and Start Exploring navigation.
+
+Verify that every navigation action works.
+
+### Phase 3: Build upload and project exploration
+
+Implement source-file uploads, ZIP parsing, the sample project, the file explorer, source viewer, and contextual explanation interface.
+
+Validate file inputs and ensure uploaded code is never executed.
+
+### Phase 4: Build pull-request review
+
+Implement the sample PR summary, five changed files, actual sample diffs, contextual findings, file selection, line navigation, and review progress.
+
+### Phase 5: Add AI and voice adapters
+
+Implement the model service interface and local command router.
+
+Integrate the verified model provider and Alan AI when the required access and credentials are available.
+
+Keep text interaction functional independently of voice.
+
+### Phase 6: Audit and verify
+
+Run the available build, lint, and type checks as applicable.
+
+Test the actual user journey and correct implementation failures.
+
+Do not stop after the first successful render.
+
+## 17. FINAL QUALITY AUDIT
+
+Before declaring the implementation complete, inspect the application against the supplied anti-generic UI framework.
+
+### Visual audit
+
+- Does the black, blue, and neon-red palette remain consistent?
+- Is neon red used intentionally rather than excessively?
+- Is the hierarchy clear without repetitive card layouts?
+- Is the code diff the visual focus of the review workspace?
+- Does the homepage have a distinctive visual composition?
+- Are headings, body text, labels, and code typography clearly differentiated?
+- Are contrast and focus states usable?
+- Does the mobile layout preserve the essential workflow?
+
+### Functional audit
+
+- Can the user navigate from the homepage to Start Exploring?
+- Can the user open the sample project?
+- Can the user upload a supported source file?
+- Can the user upload a supported ZIP archive?
+- Are invalid files rejected with useful messages?
+- Does selecting a file update the code viewer?
+- Does file search work?
+- Are contextual explanations connected to the selected file or code?
+- Can the user open the sample pull request?
+- Are the sample diffs genuine comparisons of source versions?
+- Can review findings navigate to relevant code?
+- Does review progress update correctly?
+- Does the text command router execute supported commands?
+- Are unsupported integrations labelled honestly?
+- Does the interface work on desktop, tablet, and mobile?
+
+### Engineering audit
+
+- Are imports and routes valid?
+- Are there console errors?
+- Are React keys stable?
+- Are user inputs validated?
+- Is ZIP parsing bounded?
+- Are API secrets protected?
+- Are loading and error states implemented where necessary?
+- Are unsupported integrations kept separate from working features?
+- Does the application build successfully in the available environment?
+
+Fix failures before delivering the result.
+
+## 18. OUTPUT EXPECTATIONS
+
+Generate the complete runnable application in the current AI website-generation environment.
+
+Provide:
+
+- All required source files.
+- All necessary configuration files.
+- Reusable React components.
+- Responsive styling and design tokens.
+- Realistic, clearly labelled sample data.
+- Functional navigation and application state.
+- Working local upload and parsing flows.
+- Genuine sample code diffs.
+- Contextual explanation and review interfaces.
+- A usable text-command fallback.
+- Modular integration boundaries for Alan AI, the model provider, and GitHub.
+- A README containing installation, configuration, execution, and deployment instructions.
+- An `.env.example` only if environment variables are actually required, containing variable names but no secrets.
+
+Do not return only a prompt plan, screenshots, wireframes, static HTML, pseudocode, or isolated snippets.
+
+If an integration cannot be completed because credentials or access are missing, implement the correct integration boundary, explain the exact configuration needed in the README, and keep the rest of the application functional.
+
+Do not claim deployment, API integration, voice activation, or testing succeeded unless it actually did.
+
+## FINAL DIRECTIVE
+
+Build Gitvox as a distinctive, functional developer product with a black, blue, and neon-red identity.
+
+The public homepage must make the product understandable. The project workspace must help users explore real source files. The pull-request workspace must display genuine sample diffs. Contextual explanations must be grounded in available code. Voice commands must connect to real application actions when configured.
+
+Use the supplied anti-generic design framework to guide the design process, implementation, motion polish, and final audit.
+
+Prioritize working functionality, technical correctness, visual identity, and honest integration boundaries over decorative complexity.
+
+Begin implementation now and deliver the complete working application.

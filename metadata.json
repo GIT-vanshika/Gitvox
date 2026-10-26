@@ -1,0 +1,7 @@
+{
+  "name": "Gitvox",
+  "description": "Your code. Your voice. Your clarity. A voice-first AI code-understanding and pull-request review platform.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

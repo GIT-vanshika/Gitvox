@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  /* Core Brand Palette — Black, Blue, and Selective Neon Red */
+  --bg-primary: #080A0F;
+  --bg-secondary: #0D111A;
+  --bg-elevated: #121926;
+  --border-subtle: #263247;
+  --accent-blue: #397BFF;
+  --accent-blue-bright: #5EA1FF;
+  --accent-neon-red: #FF294F;
+  --accent-neon-red-soft: #FF526F;
+  --text-primary: #F1F5FC;
+  --text-secondary: #A0AEC2;
+  --text-muted: #77849A;
+  --status-addition: #39D98A;
+  --status-warning: #F5B84B;
+  --status-deletion: #FF526F;
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Motion */
+  --ease-out-quart: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    letter-spacing: 0.01em;
+    overflow-x: hidden;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Accessible focus indicator */
+:focus-visible {
+  outline: 2px solid var(--accent-blue-bright);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom subtle scrollbars for code and file trees */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
