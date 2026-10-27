@@ -4,6 +4,8 @@ import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
 import { PullRequestPage } from './pages/PullRequestPage';
 import { VoiceCommandModal } from './components/voice/VoiceCommandBar';
+import { ImmersiveBackdrop } from './components/effects/ImmersiveBackdrop';
+import { ScrollProgress } from './components/effects/ScrollProgress';
 import { SAMPLE_PROJECT } from './data/sampleProject';
 import { SAMPLE_PULL_REQUEST } from './data/samplePullRequest';
 import { SAMPLE_FINDINGS } from './data/sampleFindings';
@@ -187,57 +189,62 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-[#F1F5FC]">
-      {currentRoute === 'home' && (
-        <HomePage
-          onNavigate={handleNavigate}
-          onOpenVoiceModal={() => setVoiceModalOpen(true)}
-        />
-      )}
+    <div className="relative isolate min-h-screen bg-transparent text-[#F1F5FC]">
+      <ImmersiveBackdrop />
+      <ScrollProgress />
 
-      {currentRoute === 'explore' && (
-        <StartExploringPage
-          systemStatus={systemStatus}
-          onSetStatus={setSystemStatus}
-          onProjectLoaded={handleProjectLoaded}
-          onNavigate={handleNavigate}
-        />
-      )}
+      <div className="relative z-10">
+        {currentRoute === 'home' && (
+          <HomePage
+            onNavigate={handleNavigate}
+            onOpenVoiceModal={() => setVoiceModalOpen(true)}
+          />
+        )}
 
-      {currentRoute === 'project' && (
-        <ProjectWorkspacePage
-          project={loadedProject}
-          selectedFilePath={selectedProjectFilePath}
-          onSelectFile={handleSelectProjectFile}
-          selectedFunctionName={selectedFunctionName}
-          onSelectFunction={handleSelectFunction}
-          explanations={explanations}
-          onExplainProjectOverview={handleExplainProjectOverview}
-          onExplainCurrentFile={handleExplainCurrentFile}
-          onAskQuestion={handleAskQuestion}
-          onExecuteCommand={handleExecuteCommand}
-          onResetWorkspace={handleResetWorkspace}
-          onNavigate={handleNavigate}
-          onOpenVoiceModal={() => setVoiceModalOpen(true)}
-          systemStatus={systemStatus}
-        />
-      )}
+        {currentRoute === 'explore' && (
+          <StartExploringPage
+            systemStatus={systemStatus}
+            onSetStatus={setSystemStatus}
+            onProjectLoaded={handleProjectLoaded}
+            onNavigate={handleNavigate}
+          />
+        )}
 
-      {currentRoute === 'pr' && (
-        <PullRequestPage
-          pullRequest={SAMPLE_PULL_REQUEST}
-          findings={SAMPLE_FINDINGS}
-          selectedFilePath={selectedPrFilePath}
-          onSelectFile={setSelectedPrFilePath}
-          reviewedFiles={reviewedFiles}
-          onToggleFileReviewed={handleToggleFileReviewed}
-          explanations={explanations}
-          onExplainHunk={handleExplainDiffHunk}
-          onExecuteCommand={handleExecuteCommand}
-          onNavigate={handleNavigate}
-          onOpenVoiceModal={() => setVoiceModalOpen(true)}
-        />
-      )}
+        {currentRoute === 'project' && (
+          <ProjectWorkspacePage
+            project={loadedProject}
+            selectedFilePath={selectedProjectFilePath}
+            onSelectFile={handleSelectProjectFile}
+            selectedFunctionName={selectedFunctionName}
+            onSelectFunction={handleSelectFunction}
+            explanations={explanations}
+            onExplainProjectOverview={handleExplainProjectOverview}
+            onExplainCurrentFile={handleExplainCurrentFile}
+            onAskQuestion={handleAskQuestion}
+            onExecuteCommand={handleExecuteCommand}
+            onResetWorkspace={handleResetWorkspace}
+            onNavigate={handleNavigate}
+            onOpenVoiceModal={() => setVoiceModalOpen(true)}
+            systemStatus={systemStatus}
+          />
+        )}
+
+        {currentRoute === 'pr' && (
+          <PullRequestPage
+            pullRequest={SAMPLE_PULL_REQUEST}
+            findings={SAMPLE_FINDINGS}
+            selectedFilePath={selectedPrFilePath}
+            onSelectFile={setSelectedPrFilePath}
+            reviewedFiles={reviewedFiles}
+            onToggleFileReviewed={handleToggleFileReviewed}
+            explanations={explanations}
+            onExplainHunk={handleExplainDiffHunk}
+            onExecuteCommand={handleExecuteCommand}
+            onNavigate={handleNavigate}
+            onOpenVoiceModal={() => setVoiceModalOpen(true)}
+          />
+        )}
+      </div>
 
       <VoiceCommandModal
         isOpen={voiceModalOpen}

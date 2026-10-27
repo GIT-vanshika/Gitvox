@@ -189,9 +189,9 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-[#F1F5FC] flex flex-col">
+    <div className="flex min-h-screen flex-col text-[#F1F5FC]">
       {/* Top Bar */}
-      <header className="bg-[#080A0F] border-b border-[#263247] px-6 py-3.5">
+      <header className="glass-bar sticky top-0 z-30 border-b border-[#263247] px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-8">
           <div className="flex items-center gap-3 min-w-0">
             <GitvoxWordmark onClick={() => onNavigate('home')} />

@@ -136,6 +136,76 @@ export interface AIExplanation {
   timestamp: string;
 }
 
+/**
+ * Phase 2 live-model types.
+ * `ModelExplanation` always originates from an actual provider response; any
+ * locally generated explanation stays an `AIExplanation` and is labelled as
+ * deterministic sample-grounded output.
+ */
+export interface ModelStatus {
+  configured: boolean;
+  model: string;
+  providerLabel: string;
+  endpointHost: string | null;
+}
+
+export interface ModelHunkLine {
+  type: 'unchanged' | 'added' | 'deleted';
+  oldLineNumber: number | null;
+  newLineNumber: number | null;
+  content: string;
+}
+
+export interface ModelExplainRequest {
+  pullRequest: {
+    number: number;
+    title: string;
+    repository: string;
+    author: string;
+    sourceBranch: string;
+    targetBranch: string;
+    overview: string;
+    purpose: string;
+  };
+  file: {
+    path: string;
+    language: string;
+    summary: string;
+    baseContent: string;
+    proposedContent: string;
+  };
+  hunk: {
+    header: string;
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+    lines: ModelHunkLine[];
+  };
+}
+
+export interface ModelUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
+export interface ModelExplanation {
+  text: string;
+  model: string;
+  provider: string;
+  usage?: ModelUsage;
+  latencyMs: number;
+  generatedAt: string;
+  truncatedContext?: boolean;
+}
+
+export interface ModelErrorInfo {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
 export interface CommandResult {
   recognized: boolean;
   intent:

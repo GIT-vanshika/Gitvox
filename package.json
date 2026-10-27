@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
+    "dev": "node scripts/dev.mjs",
+    "dev:client": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build && npm run build:server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=server.js",
+    "start": "node server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
+    "test": "tsx --test src/services/gitvoxLogic.test.ts server/modelClient.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -28,10 +32,23 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",
     "@types/express": "^4.17.21"
-  }
+  },
+  "description": "**Your code. Your voice. Your clarity.**",
+  "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GIT-vanshika/Gitvox.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GIT-vanshika/Gitvox/issues"
+  },
+  "homepage": "https://github.com/GIT-vanshika/Gitvox#readme"
 }
