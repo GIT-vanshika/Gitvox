@@ -27,8 +27,8 @@ export const GitvoxLogoMark: React.FC<{ className?: string }> = ({ className = '
       strokeLinejoin="round"
     />
     <path d="M12 6V18" stroke="var(--text)" strokeWidth="1.75" strokeLinecap="round" />
-    <path d="M9.5 9V15" stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
-    <path d="M14.5 9V15" stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M9.5 9V15" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M14.5 9V15" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 

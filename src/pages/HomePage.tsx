@@ -114,26 +114,26 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             >
               <a
                 href="#product"
-                className="rounded px-2 py-1.5 transition-colors hover:bg-muted hover:text-ink"
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
               >
                 Product
               </a>
               <a
                 href="#workflow"
-                className="rounded px-2 py-1.5 transition-colors hover:bg-muted hover:text-ink"
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
               >
                 Workflow
               </a>
               <a
                 href="#sample-project"
-                className="rounded px-2 py-1.5 transition-colors hover:bg-muted hover:text-ink"
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
               >
                 Sample project
               </a>
               <button
                 type="button"
                 onClick={() => onNavigate('pr')}
-                className="rounded px-2 py-1.5 transition-colors hover:bg-muted hover:text-ink cursor-pointer"
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent cursor-pointer"
               >
                 Sample PR
               </button>
@@ -187,7 +187,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
               <p className="mt-5 inline-flex items-center gap-2 text-[13px] text-body">
                 <Mic className="h-4 w-4 text-accent" aria-hidden="true" />
-                Or use the microphone in the bottom-right corner to ask by voice.
+                Or use the floating microphone in the bottom-left corner to ask by voice.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-4 text-xs">
@@ -204,7 +204,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </div>
 
             <div className="min-w-0">
-              <div className="code-panel">
+              <div className="code-panel card-elevated">
                 <div className="panel-head">
                   <div className="flex min-w-0 items-center gap-2">
                     <FileCode className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
@@ -334,10 +334,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                       type="button"
                       onClick={() => setActiveSampleStep(index)}
                       aria-pressed={active}
-                      className={`min-w-0 rounded-lg border p-4 text-left transition-colors cursor-pointer ${
+                      className={`min-w-0 rounded-lg border p-4 text-left transition-all duration-150 cursor-pointer ${
                         active
-                          ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
-                          : 'border-line bg-page hover:border-line-strong hover:bg-soft'
+                          ? 'border-[var(--accent)] bg-[var(--accent-soft)] shadow-[0_2px_12px_rgba(183,255,60,0.15)]'
+                          : 'border-line bg-[var(--bg-subtle)] hover:border-line-strong hover:bg-[var(--bg-muted)] hover:-translate-y-0.5 hover:shadow-[0_4px_14px_rgba(0,0,0,0.4)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">

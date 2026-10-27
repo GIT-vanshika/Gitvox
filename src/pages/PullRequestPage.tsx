@@ -351,13 +351,13 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:flex-wrap xl:flex-nowrap">
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row items-stretch">
           {/* Changed files */}
           <aside
             aria-label="Changed files explorer"
             className={`${
               mobileTab === 'files' ? 'flex' : 'hidden'
-            } w-full min-w-0 flex-col rounded-lg border border-line bg-page lg:flex lg:w-60 lg:shrink-0`}
+            } w-full min-w-0 flex-col rounded-lg border border-line bg-page lg:flex lg:w-56 xl:w-64 lg:shrink-0 h-[calc(100vh-210px)] min-h-[520px] max-h-[820px]`}
           >
             <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
               <h2 className="text-xs font-semibold text-ink">
@@ -388,7 +388,7 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
               </div>
             </div>
 
-            <div className="divide-y divide-[var(--border)]">
+            <div className="flex-1 overflow-y-auto divide-y divide-[var(--border)]">
               {filteredFiles.map((file) => {
                 const isSelected = file.path === activeFile.path;
                 const isReviewed = Boolean(reviewedFiles[file.path]);
@@ -445,9 +445,9 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
 
           {/* Diff viewer */}
           <div
-            className={`${mobileTab === 'diff' ? 'block' : 'hidden'} min-w-0 flex-1 lg:block`}
+            className={`${mobileTab === 'diff' ? 'flex' : 'hidden'} min-w-0 flex-1 lg:flex lg:flex-col h-[calc(100vh-210px)] min-h-[520px] max-h-[820px]`}
           >
-            <section className="code-panel" aria-label={`Diff for ${activeFile.path}`}>
+            <section className="code-panel flex flex-1 flex-col overflow-hidden" aria-label={`Diff for ${activeFile.path}`}>
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2.5">
                 <div className="flex min-w-0 items-center gap-2">
                   <FileCode className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
@@ -490,13 +490,15 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                     type="button"
                     onClick={() => onToggleFileReviewed(activeFile.path)}
                     className={`btn btn-sm ${
-                      isCurrentFileReviewed ? 'btn-secondary' : 'btn-secondary'
+                      isCurrentFileReviewed
+                        ? 'border-[var(--accent)] text-accent bg-[var(--accent-soft)]'
+                        : 'btn-secondary'
                     }`}
                     aria-pressed={isCurrentFileReviewed}
                   >
                     <CheckCircle2
                       className={`h-3.5 w-3.5 ${
-                        isCurrentFileReviewed ? 'text-[var(--success)]' : 'text-faint'
+                        isCurrentFileReviewed ? 'text-accent' : 'text-faint'
                       }`}
                       aria-hidden="true"
                     />
@@ -542,7 +544,7 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                 </div>
               </div>
 
-              <div className="code-scroll max-h-[70vh] min-h-[260px] py-1">
+              <div className="code-scroll flex-1 py-1">
                 {diffMode === 'unified' ? (
                   activeDiff.unifiedLines.map((line, index) => {
                     const isHighlighted =
@@ -670,14 +672,14 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
             aria-label="AI review panel"
             className={`${
               mobileTab === 'review' ? 'flex' : 'hidden'
-            } w-full min-w-0 flex-col rounded-lg border border-line bg-page lg:flex lg:w-full xl:w-[360px] xl:shrink-0`}
+            } w-full min-w-0 flex-col rounded-lg border border-line bg-page lg:flex lg:w-72 xl:w-84 lg:shrink-0 h-[calc(100vh-210px)] min-h-[520px] max-h-[820px]`}
           >
             <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
               <h2 className="text-xs font-semibold text-ink">Review &amp; findings</h2>
               <span className="font-mono text-[10px] text-faint">Sample review content</span>
             </div>
 
-            <div className="space-y-3 p-3">
+            <div className="flex-1 overflow-y-auto space-y-3 p-3">
               {/* Model explanation */}
               <div className="space-y-2" aria-live="polite">
                 <div className="flex items-center justify-between">

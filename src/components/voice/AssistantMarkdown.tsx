@@ -18,7 +18,7 @@ function InlineText({ text }: { text: string }) {
           return (
             <code
               key={index}
-              className="rounded border border-line bg-muted px-1 py-0.5 font-mono text-[0.9em] text-ink"
+              className="rounded border border-line bg-muted px-1.5 py-0.5 font-mono text-[0.9em] text-accent"
             >
               {part.slice(1, -1)}
             </code>

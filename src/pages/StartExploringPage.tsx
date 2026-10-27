@@ -261,7 +261,7 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
 
         <Reveal className="mt-8 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
           {/* Option 1: single source file */}
-          <div className="card flex min-w-0 flex-col justify-between p-5">
+          <div className="card-elevated flex min-w-0 flex-col justify-between p-5">
             <div>
               <div className="flex items-center justify-between gap-2 text-xs text-faint">
                 <span className="font-mono text-accent">01. Single source file</span>
@@ -313,7 +313,7 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
           </div>
 
           {/* Option 2: ZIP project */}
-          <div className="card flex min-w-0 flex-col justify-between p-5">
+          <div className="card-elevated flex min-w-0 flex-col justify-between p-5">
             <div>
               <div className="flex items-center justify-between gap-2 text-xs text-faint">
                 <span className="font-mono text-accent">02. Project archive</span>
@@ -367,7 +367,7 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
           </div>
 
           {/* Option 3: built-in sample */}
-          <div className="card flex min-w-0 flex-col justify-between border-[var(--accent-border)] p-5">
+          <div className="card-elevated flex min-w-0 flex-col justify-between border-[var(--accent-border)] hover:border-[var(--accent)] p-5">
             <div>
               <div className="flex items-center justify-between gap-2 text-xs text-faint">
                 <span className="font-mono text-[var(--success)]">03. Instant demo ready</span>

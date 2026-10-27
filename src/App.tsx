@@ -311,7 +311,11 @@ export function App() {
         onVoiceRequest={handleVoiceRequest}
       />
 
-      <FloatingMic onClick={() => openAssistant(true)} hidden={assistantOpen} />
+      <FloatingMic
+        onClick={() => openAssistant(true)}
+        hidden={assistantOpen}
+        state={systemStatus === 'Analyzing' ? 'processing' : systemStatus === 'Failed' ? 'error' : 'idle'}
+      />
     </div>
   );
 }

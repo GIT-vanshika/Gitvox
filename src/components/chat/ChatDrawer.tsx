@@ -284,7 +284,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-[rgba(16,24,40,0.28)]"
+      className="fixed inset-0 z-50 flex justify-end bg-[rgba(0,0,0,0.65)]"
       onClick={onClose}
     >
       <div
@@ -294,7 +294,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         onClick={(event) => event.stopPropagation()}
         className="chat-drawer flex h-full max-h-[100dvh] w-full max-w-full flex-col border-l border-line bg-page sm:max-w-[420px]"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-4 py-3">
+        <header className="flex items-start justify-between gap-4 border-b border-line bg-[var(--bg-subtle)] px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-ink">Gitvox results</h2>
             <p className="mt-0.5 text-[11px] text-faint">Ask about the current code or PR.</p>
@@ -325,7 +325,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                             ? 'border-[var(--danger-border)] bg-[var(--danger-bg)]'
                             : message.variant === 'clarification'
                             ? 'border-[var(--warning-border)] bg-[var(--warning-bg)]'
-                            : 'border-line bg-soft'
+                            : 'border-line bg-[var(--bg-subtle)]'
                         }`
                   }
                 >
@@ -370,7 +370,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
             {isThinking && (
               <div className="flex justify-start">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-soft px-3.5 py-2.5 text-[12px] text-faint">
+                <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[12px] text-faint">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" aria-hidden="true" />
                   Understanding your request…
                 </div>
@@ -379,7 +379,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           </div>
         </div>
 
-        <div className="border-t border-line bg-page px-3 py-3">
+        <div className="border-t border-line bg-[var(--bg-subtle)] px-3 py-3">
           {voiceError && (
             <p className="mb-2 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--warning)]">
               {voiceError}
@@ -399,8 +399,8 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                 title={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
                 className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
                   voiceStatus === 'listening'
-                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                    : 'border-line-strong bg-page text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-accent'
+                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416]'
+                    : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)]'
                 }`}
               >
                 {voiceStatus === 'listening' ? (
