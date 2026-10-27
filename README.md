@@ -14,24 +14,19 @@ Gitvox is a voice-first AI platform for understanding codebases and reviewing pu
    - Conversational, route-aware context routing that passes actual diff hunks, file contents, or line ranges to the AI model.
    - Built-in text fallback drawer available at any time.
 
-2. **Graphite Gray & Neon Green Theme**:
-   - Purpose-built dark workspace (`#111416` background, `#191E20` main panels, `#22292B` secondary surfaces, `#343D3F` borders).
-   - High-contrast primary text (`#E8EFEC`), muted secondary text (`#9AA8A2`), and selective neon green accents (`#B7FF3C` / `#A6F432`) for active files, focus rings, and microphone states.
-   - High-contrast, distinct syntax highlighting with dark-mode optimized colors.
-   - Restrained 3D depth and elevation transitions on interactive elements that respect `prefers-reduced-motion`.
 
-3. **Cohesive Code-Review Workspace**:
+2. **Cohesive Code-Review Workspace**:
    - Three-panel layout (changed files explorer, central diff viewer, and review findings) aligned with consistent heights and independent scroll areas.
    - Code diff remains the primary focus without awkward responsive wrapping on standard desktop screens (1024px–1440px).
    - Long code lines scroll internally within the diff viewer rather than expanding the page or causing horizontal document blowout.
 
-4. **Pull-Request Review (Sample PR #284)**:
+3. **Pull-Request Review (Sample PR #284)**:
    - Pre-loaded with PR `#284` (*Add token-based authentication middleware* in `acme-platform/api-server`, `+86` additions, `-24` deletions across 5 files).
    - Genuine Longest Common Subsequence (LCS) line-by-line diffs supporting both **Unified** and **Split** views.
    - Severity-labeled review findings with uncertainty disclosures and one-click line jumping.
    - Per-file review tracking with visual toggle indicators.
 
-5. **Local-First Project Explorer**:
+4. **Local-First Project Explorer**:
    - Upload individual source files (up to 2 MB) or ZIP archives (up to 10 MB text) parsed in-memory.
    - Automatic function extraction, path traversal protection, and exclusion of `node_modules/`, `dist/`, and `.git/`.
    - Zero execution of uploaded code.
@@ -141,7 +136,7 @@ npm run build
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [https://gitvox-dun.vercel.app/](https://gitvox-dun.vercel.app/) in your browser.
 
 ---
 
@@ -164,7 +159,7 @@ git diff --check
 ```
 
 ### Testing the Workspace Layout
-1. Open [http://localhost:3000/?route=pr](http://localhost:3000/?route=pr) to view the PR #284 workspace.
+1. Open [https://gitvox-dun.vercel.app/?route=pr](https://gitvox-dun.vercel.app/?route=pr) to view the PR #284 workspace.
 2. Verify that the file list, code diff viewer, and findings panel share matching top/bottom bounds with independent internal scrolling.
 3. Toggle between **Unified** and **Split** diff modes.
 4. Resize your browser down to tablet (`768px`) and mobile (`375px`) widths to confirm the mobile tab strip (`Files`, `Diff`, `Review`) and bottom-left floating mic behavior.
