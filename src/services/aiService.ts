@@ -159,6 +159,75 @@ export function buildDiffHunkExplanation(
   };
 }
 
+/**
+ * Builds a grounded explanation for a selected line range in a loaded file.
+ * This is deterministic local analysis, not a model response, and says so.
+ */
+export function buildLineRangeExplanation(
+  file: ProjectFile,
+  startLine: number,
+  endLine: number
+): AIExplanation {
+  const lines = file.content.replace(/\r\n/g, '\n').split('\n');
+  const totalLines = lines.length;
+  const requestedStart = Number.isFinite(startLine) ? Math.trunc(startLine) : 1;
+  const requestedEnd = Number.isFinite(endLine) ? Math.trunc(endLine) : totalLines;
+  const low = Math.min(requestedStart, requestedEnd);
+  const high = Math.max(requestedStart, requestedEnd);
+  const start = Math.min(Math.max(low, 1), totalLines);
+  const end = Math.min(Math.max(high, start), totalLines);
+
+  const rangeLines = lines.slice(start - 1, end);
+  const snippet = rangeLines.join('\n');
+  const nonEmptyLines = rangeLines.filter((line) => line.trim().length > 0).length;
+
+  const intersectingFunctions = file.functions.filter(
+    (fn) => fn.startLine <= end && fn.endLine >= start
+  );
+
+  const constructs: string[] = [];
+  if (/\btry\b|\bcatch\b|\bthrow\b/.test(snippet)) constructs.push('error handling');
+  if (/\bawait\b|\basync\b/.test(snippet)) constructs.push('asynchronous calls');
+  if (/\breturn\b/.test(snippet)) constructs.push('explicit returns');
+  if (/\bif\s*\(|\belse\b/.test(snippet)) constructs.push('conditional branching');
+  if (/\bimport\b|\brequire\s*\(/.test(snippet)) constructs.push('module imports');
+  if (/\bclass\b|\binterface\b|\btype\s+\w+\s*=/.test(snippet)) constructs.push('type/class declarations');
+
+  const details = [
+    `Selected ${rangeLines.length} line${rangeLines.length === 1 ? '' : 's'} (${nonEmptyLines} non-empty) from ${file.path}.`,
+    intersectingFunctions.length > 0
+      ? `Intersecting parsed functions: ${intersectingFunctions
+          .map((fn) => `${fn.name} (L${fn.startLine}–L${fn.endLine})`)
+          .join(', ')}.`
+      : 'No parsed function boundary intersects this range.',
+    constructs.length > 0
+      ? `Constructs observed in the range: ${constructs.join(', ')}.`
+      : 'The range is primarily declarations, configuration, or comments.',
+  ];
+
+  if (start !== requestedStart || end !== requestedEnd) {
+    details.push(
+      `Requested range ${requestedStart}–${requestedEnd} was clamped to the file bounds (L1–L${totalLines}).`
+    );
+  }
+
+  return {
+    id: `exp-range-${file.path}-${start}-${end}-${Date.now()}`,
+    title: `Code Range: ${file.path} · L${start}–L${end}`,
+    scopeLabel: `${file.path} · Lines ${start}–${end} · ${file.language}`,
+    filePath: file.path,
+    lineRange: [start, end],
+    summary: `${file.path} lines ${start}–${end} contain ${nonEmptyLines} non-empty line${
+      nonEmptyLines === 1 ? '' : 's'
+    }${intersectingFunctions.length > 0 ? ` within ${intersectingFunctions.map((fn) => fn.name).join(', ')}` : ''}.`,
+    details,
+    evidenceSnippet: snippet,
+    confidenceNote: `Grounded directly in ${file.path} lines ${start}–${end}. Local deterministic range analysis; no model call.`,
+    sourceOrigin: 'sample-grounded',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
 export function buildContextualQuestionResponse(
   question: string,
   project: LoadedProject,

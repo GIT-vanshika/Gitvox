@@ -1,4 +1,5 @@
 import type {
+  AssistantRequest,
   DiffHunk,
   ModelErrorInfo,
   ModelExplainRequest,
@@ -143,11 +144,12 @@ export async function fetchModelStatus(signal?: AbortSignal): Promise<ModelStatu
 }
 
 /**
- * Calls the server-side bridge. The browser never sees MODEL_API_KEY; the
- * response text is exactly what the configured open-weight model returned.
+ * Shared bridge call used by the PR hunk review and the voice assistant.
+ * Authentication stays server-side; the browser only sees the model response.
  */
-export async function explainHunkWithModel(
-  request: ModelExplainRequest,
+async function postExplanation(
+  endpoint: string,
+  body: unknown,
   signal?: AbortSignal
 ): Promise<ModelExplanation> {
   const controller = new AbortController();
@@ -156,10 +158,10 @@ export async function explainHunkWithModel(
   signal?.addEventListener('abort', forwardAbort, { once: true });
 
   try {
-    const response = await fetch('/api/explain', {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(request),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -221,4 +223,25 @@ export async function explainHunkWithModel(
     clearTimeout(timeout);
     signal?.removeEventListener('abort', forwardAbort);
   }
+}
+
+/**
+ * Calls the grounded voice-assistant endpoint with the real selected context.
+ */
+export async function explainAssistantWithModel(
+  request: AssistantRequest,
+  signal?: AbortSignal
+): Promise<ModelExplanation> {
+  return postExplanation('/api/assistant/explain', request, signal);
+}
+
+/**
+ * Calls the Phase 2 PR-hunk endpoint. Kept unchanged for the existing Explain
+ * Hunk actions in the pull-request review panel.
+ */
+export async function explainHunkWithModel(
+  request: ModelExplainRequest,
+  signal?: AbortSignal
+): Promise<ModelExplanation> {
+  return postExplanation('/api/explain', request, signal);
 }

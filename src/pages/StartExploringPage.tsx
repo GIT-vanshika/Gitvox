@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { zipSync, strToU8 } from 'fflate';
 import { GitvoxWordmark } from '../components/common/GitvoxBrand';
+import { Reveal } from '../components/common/Reveal';
 import {
   EXCLUDED_DIRECTORIES,
   FileValidationError,
@@ -18,7 +19,7 @@ import {
   parseZipArchiveBytes,
   SUPPORTED_EXTENSIONS,
 } from '../services/fileParser';
-import { getGitHubIntegrationStatus } from '../services/alanVoiceService';
+import { getGitHubIntegrationStatus } from '../services/voiceService';
 import { SAMPLE_PROJECT } from '../data/sampleProject';
 import { LoadedProject, RouteId, SystemStatus } from '../types/gitvox';
 
@@ -189,62 +190,58 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen flex-col text-[#F1F5FC]">
-      {/* Top Bar */}
-      <header className="glass-bar sticky top-0 z-30 border-b border-[#263247] px-6 py-3.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-8">
-          <div className="flex items-center gap-3 min-w-0">
+    <div className="flex min-h-screen flex-col bg-page">
+      <header className="app-header">
+        <div className="shell app-header__inner justify-between">
+          <div className="flex min-w-0 items-center gap-2.5">
             <GitvoxWordmark onClick={() => onNavigate('home')} />
-            <span className="text-[#77849A] text-sm" aria-hidden="true">
+            <span className="text-faint" aria-hidden="true">
               /
             </span>
-            <span className="text-sm font-medium text-[#A0AEC2] truncate">Start Exploring</span>
+            <span className="truncate text-sm font-medium text-body">Start exploring</span>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs font-mono text-[#77849A] hidden sm:inline">
-              Status: <strong className="text-[#F1F5FC]">{systemStatus}</strong>
-            </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="chip hidden sm:inline-flex">{systemStatus}</span>
             <button
               type="button"
               onClick={() => onNavigate('pr')}
-              className="px-3.5 py-1.5 text-xs font-medium bg-[#121926] hover:bg-[#192234] text-[#F1F5FC] border border-[#263247] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="btn btn-secondary btn-sm"
             >
-              Open Sample PR #284
+              <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Sample PR #284</span>
+              <span className="sm:hidden">PR #284</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-12">
+      <main className="shell flex-1 pb-28 pt-10">
         <div className="max-w-3xl">
-          <p className="text-xs font-medium text-[#5EA1FF]">Workspace Initialization</p>
-          <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#F1F5FC]">
-            Choose how to load source code into Gitvox
-          </h1>
-          <p className="mt-2.5 text-sm text-[#A0AEC2] leading-relaxed">
+          <p className="eyebrow">Workspace initialization</p>
+          <h1 className="h2 mt-2">Choose how to load source code into Gitvox</h1>
+          <p className="mt-3 text-sm leading-6 text-body">
             All uploaded files and archives are parsed statically in browser memory. Gitvox never
             executes uploaded code, never runs scripts, and never installs project dependencies.
           </p>
         </div>
 
-        {/* Validation Error / Unsupported Feedback Banner */}
         {errorBanner && (
           <div
             role="alert"
-            className="mt-6 p-4 bg-[#121926] border border-[#FF294F] rounded-lg flex items-start justify-between gap-4"
+            className="mt-6 flex items-start justify-between gap-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-4"
           >
-            <div className="flex items-start gap-3">
+            <div className="flex min-w-0 items-start gap-3">
               <AlertCircle
-                className="w-5 h-5 text-[#FF294F] shrink-0 mt-0.5"
+                className="mt-0.5 h-5 w-5 shrink-0 text-[var(--danger)]"
                 aria-hidden="true"
               />
-              <div>
-                <h2 className="text-sm font-semibold text-[#FF526F]">{errorBanner.title}</h2>
-                <p className="text-xs text-[#F1F5FC] mt-1">{errorBanner.message}</p>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-[var(--danger)]">{errorBanner.title}</h2>
+                <p className="mt-1 text-xs leading-5 text-ink">{errorBanner.message}</p>
                 {errorBanner.remediation && (
-                  <p className="text-xs text-[#A0AEC2] mt-1">
-                    <strong>How to fix:</strong> {errorBanner.remediation}
+                  <p className="mt-1 text-xs leading-5 text-body">
+                    <strong className="text-ink">How to fix:</strong> {errorBanner.remediation}
                   </p>
                 )}
               </div>
@@ -255,40 +252,39 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
                 setErrorBanner(null);
                 onSetStatus('Idle');
               }}
-              className="text-xs text-[#A0AEC2] hover:text-[#F1F5FC] shrink-0 cursor-pointer"
+              className="btn btn-ghost btn-xs shrink-0"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* Three Primary Entry Options */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          {/* Option 1: Upload Source Code */}
-          <div className="bg-[#0D111A] border border-[#263247] rounded-lg p-6 flex flex-col justify-between">
+        <Reveal className="mt-8 grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+          {/* Option 1: single source file */}
+          <div className="card flex min-w-0 flex-col justify-between p-5">
             <div>
-              <div className="flex items-center justify-between text-xs text-[#77849A]">
-                <span className="font-mono text-[#5EA1FF]">01. Single Source File</span>
+              <div className="flex items-center justify-between gap-2 text-xs text-faint">
+                <span className="font-mono text-accent">01. Single source file</span>
                 <span className="font-mono tabular-nums">Max 2.0 MB</span>
               </div>
-              <h2 className="mt-3 text-lg font-semibold text-[#F1F5FC] flex items-center gap-2">
-                <FileCode className="w-5 h-5 text-[#397BFF]" aria-hidden="true" />
-                <span>Upload Source Code</span>
+              <h2 className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                <FileCode className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
+                <span>Upload source code</span>
               </h2>
-              <p className="mt-2 text-xs text-[#A0AEC2] leading-relaxed">
+              <p className="mt-2 text-xs leading-5 text-body">
                 Inspect an individual source file with syntax highlighting, automatic function
                 extraction, and contextual explanations.
               </p>
 
-              <div className="mt-4 pt-4 border-t border-[#263247] text-xs text-[#77849A]">
-                <div className="font-medium text-[#A0AEC2] mb-1">Supported extensions:</div>
-                <p className="font-mono leading-relaxed">
+              <div className="mt-4 border-t border-line pt-4 text-xs">
+                <div className="mb-1 font-medium text-ink">Supported extensions</div>
+                <p className="break-words font-mono leading-5 text-faint">
                   {Object.keys(SUPPORTED_EXTENSIONS).join(', ')}
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 space-y-2.5">
+            <div className="mt-5 space-y-2">
               <input
                 ref={singleFileInputRef}
                 type="file"
@@ -300,48 +296,48 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
               <button
                 type="button"
                 onClick={() => singleFileInputRef.current?.click()}
-                className="w-full py-2.5 px-4 text-xs font-semibold bg-[#121926] hover:bg-[#192234] text-[#F1F5FC] border border-[#397BFF] rounded-md transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-secondary w-full"
               >
-                <Upload className="w-4 h-4 text-[#5EA1FF]" aria-hidden="true" />
-                <span>Select Source File</span>
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                Select source file
               </button>
 
               <button
                 type="button"
                 onClick={handleSimulateInvalidUpload}
-                className="w-full py-1.5 px-3 text-[11px] text-[#77849A] hover:text-[#A0AEC2] text-center transition-colors cursor-pointer"
+                className="w-full py-1 text-center text-[11px] text-faint hover:text-body cursor-pointer"
               >
-                Test Unsupported Format Validation (.exe)
+                Test unsupported format validation (.exe)
               </button>
             </div>
           </div>
 
-          {/* Option 2: Upload a ZIP Project */}
-          <div className="bg-[#0D111A] border border-[#263247] rounded-lg p-6 flex flex-col justify-between">
+          {/* Option 2: ZIP project */}
+          <div className="card flex min-w-0 flex-col justify-between p-5">
             <div>
-              <div className="flex items-center justify-between text-xs text-[#77849A]">
-                <span className="font-mono text-[#5EA1FF]">02. Project Archive</span>
-                <span className="font-mono tabular-nums">Max 10.0 MB Text</span>
+              <div className="flex items-center justify-between gap-2 text-xs text-faint">
+                <span className="font-mono text-accent">02. Project archive</span>
+                <span className="font-mono tabular-nums">Max 10.0 MB text</span>
               </div>
-              <h2 className="mt-3 text-lg font-semibold text-[#F1F5FC] flex items-center gap-2">
-                <FileArchive className="w-5 h-5 text-[#397BFF]" aria-hidden="true" />
-                <span>Upload a ZIP Project</span>
+              <h2 className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                <FileArchive className="h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
+                <span>Upload a ZIP project</span>
               </h2>
-              <p className="mt-2 text-xs text-[#A0AEC2] leading-relaxed">
+              <p className="mt-2 text-xs leading-5 text-body">
                 Parse a multi-file repository archive in browser memory. Normalizes relative paths,
-                blocks path traversal (<code className="text-[#F1F5FC]">../</code>), and filters
-                generated directories.
+                blocks path traversal (<code className="text-ink">../</code>), and filters generated
+                directories.
               </p>
 
-              <div className="mt-4 pt-4 border-t border-[#263247] text-xs text-[#77849A]">
-                <div className="font-medium text-[#A0AEC2] mb-1">Automatically excluded:</div>
-                <p className="font-mono leading-relaxed">
+              <div className="mt-4 border-t border-line pt-4 text-xs">
+                <div className="mb-1 font-medium text-ink">Automatically excluded</div>
+                <p className="break-words font-mono leading-5 text-faint">
                   {EXCLUDED_DIRECTORIES.slice(0, 6).join(', ')}
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 space-y-2.5">
+            <div className="mt-5 space-y-2">
               <input
                 ref={zipFileInputRef}
                 type="file"
@@ -354,99 +350,99 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
               <button
                 type="button"
                 onClick={() => zipFileInputRef.current?.click()}
-                className="w-full py-2.5 px-4 text-xs font-semibold bg-[#121926] hover:bg-[#192234] text-[#F1F5FC] border border-[#397BFF] rounded-md transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-secondary w-full"
               >
-                <Upload className="w-4 h-4 text-[#5EA1FF]" aria-hidden="true" />
-                <span>Select .ZIP Archive</span>
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                Select .ZIP archive
               </button>
 
               <button
                 type="button"
                 onClick={handleTestGeneratedZipUpload}
-                className="w-full py-1.5 px-3 text-[11px] text-[#5EA1FF] hover:underline text-center transition-colors cursor-pointer"
+                className="w-full py-1 text-center text-[11px] font-medium text-accent hover:underline cursor-pointer"
               >
-                Or Parse Sample In-Memory ZIP (rate-limiter-pkg.zip)
+                Or parse sample in-memory ZIP (rate-limiter-pkg.zip)
               </button>
             </div>
           </div>
 
-          {/* Option 3: Open Built-in Sample Project */}
-          <div className="bg-[#0D111A] border border-[#397BFF] rounded-lg p-6 flex flex-col justify-between">
+          {/* Option 3: built-in sample */}
+          <div className="card flex min-w-0 flex-col justify-between border-[var(--accent-border)] p-5">
             <div>
-              <div className="flex items-center justify-between text-xs text-[#77849A]">
-                <span className="font-mono text-[#39D98A]">03. Instant Demo Ready</span>
-                <span className="font-mono tabular-nums">7 Files · PR #284</span>
+              <div className="flex items-center justify-between gap-2 text-xs text-faint">
+                <span className="font-mono text-[var(--success)]">03. Instant demo ready</span>
+                <span className="font-mono tabular-nums">7 files · PR #284</span>
               </div>
-              <h2 className="mt-3 text-lg font-semibold text-[#F1F5FC] flex items-center gap-2">
-                <FolderGit2 className="w-5 h-5 text-[#39D98A]" aria-hidden="true" />
-                <span>Open Built-in Sample Project</span>
+              <h2 className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                <FolderGit2 className="h-4 w-4 shrink-0 text-[var(--success)]" aria-hidden="true" />
+                <span>Open built-in sample project</span>
               </h2>
-              <p className="mt-2 text-xs text-[#A0AEC2] leading-relaxed">
-                Explore <strong className="text-[#F1F5FC]">acme-platform/api-server</strong> and its
-                companion Pull Request <strong className="text-[#F1F5FC]">#284</strong> ("Add
-                token-based authentication middleware") with zero configuration.
+              <p className="mt-2 text-xs leading-5 text-body">
+                Explore <strong className="font-medium text-ink">acme-platform/api-server</strong>{' '}
+                and its companion Pull Request{' '}
+                <strong className="font-medium text-ink">#284</strong> ("Add token-based
+                authentication middleware") with zero configuration.
               </p>
 
-              <div className="mt-4 pt-4 border-t border-[#263247] text-xs text-[#A0AEC2] space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#39D98A] shrink-0" />
+              <div className="mt-4 space-y-1.5 border-t border-line pt-4 text-xs text-body">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--success)]"
+                    aria-hidden="true"
+                  />
                   <span>7 source files across middleware, services, routes, tests</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#39D98A] shrink-0" />
+                <div className="flex items-start gap-2">
+                  <CheckCircle2
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--success)]"
+                    aria-hidden="true"
+                  />
                   <span>Genuine base vs. proposed diffs (+86 / -24 lines)</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 space-y-2.5">
-              <button
-                type="button"
-                onClick={handleOpenBuiltInSample}
-                className="w-full py-2.5 px-4 text-xs font-semibold bg-[#397BFF] hover:bg-[#5EA1FF] text-[#F1F5FC] rounded-md transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <FolderGit2 className="w-4 h-4" aria-hidden="true" />
-                <span>Open Built-in Sample Project</span>
+            <div className="mt-5 space-y-2">
+              <button type="button" onClick={handleOpenBuiltInSample} className="btn btn-primary w-full">
+                <FolderGit2 className="h-4 w-4" aria-hidden="true" />
+                Open built-in sample project
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigate('pr')}
-                className="w-full py-2 px-4 text-xs font-medium bg-[#121926] hover:bg-[#192234] text-[#F1F5FC] border border-[#263247] rounded-md transition-colors inline-flex items-center justify-center gap-2 cursor-pointer"
+                className="btn btn-secondary w-full"
               >
-                <GitPullRequest className="w-3.5 h-3.5 text-[#5EA1FF]" aria-hidden="true" />
-                <span>Open Sample Pull Request #284</span>
+                <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
+                Open sample pull request #284
               </button>
             </div>
           </div>
-        </div>
+        </Reveal>
 
-        {/* Honest GitHub Integration Boundary Disclosure */}
-        <div className="mt-10 bg-[#0D111A] border border-[#263247] rounded-lg p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <Lock className="w-4 h-4 text-[#77849A] shrink-0 mt-1" aria-hidden="true" />
-              <div>
+        <div className="card-muted mt-8 p-5">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <div className="flex min-w-0 items-start gap-3">
+              <Lock className="mt-0.5 h-4 w-4 shrink-0 text-faint" aria-hidden="true" />
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-semibold text-[#F1F5FC]">
-                    Direct GitHub Repository & Pull-Request Import
+                  <span className="font-semibold text-ink">
+                    Direct GitHub repository &amp; pull-request import
                   </span>
-                  <span className="text-[#77849A]" aria-hidden="true">
+                  <span className="text-faint" aria-hidden="true">
                     ·
                   </span>
-                  <span className="font-mono text-[#F5B84B]">{githubStatus.label}</span>
+                  <span className="font-mono text-[var(--warning)]">{githubStatus.label}</span>
                 </div>
-                <p className="text-xs text-[#A0AEC2] mt-1 max-w-3xl leading-relaxed">
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-body">
                   {githubStatus.reason}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-mono text-[#77849A]">
-                Status: Unavailable integration
-              </span>
-            </div>
+            <span className="shrink-0 font-mono text-xs text-faint">
+              Status: unavailable integration
+            </span>
           </div>
         </div>
       </main>

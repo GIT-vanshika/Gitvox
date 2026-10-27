@@ -131,3 +131,45 @@ test('routeApplicationCommand handles all 7 core voice/text commands determinist
   assert.equal(unknown.recognized, false);
   assert.equal(unknown.intent, 'unknown');
 });
+
+test('Phase 3 voice/text commands route to PR, file, and line-range actions', () => {
+  const context = {
+    project: SAMPLE_PROJECT,
+    selectedFile: SAMPLE_PROJECT.files[0],
+    selectedFunctionName: 'authenticateRequest',
+    pullRequest: SAMPLE_PULL_REQUEST,
+    findings: SAMPLE_FINDINGS,
+  };
+
+  const explainPr = routeApplicationCommand('Explain the current PR.', context);
+  assert.equal(explainPr.recognized, true);
+  assert.equal(explainPr.intent, 'explain-pr');
+  assert.equal(explainPr.targetRoute, 'pr');
+
+  const summarizePr = routeApplicationCommand('Summarize the current PR.', context);
+  assert.equal(summarizePr.recognized, true);
+  assert.equal(summarizePr.intent, 'summarize-changes');
+
+  const explainFile = routeApplicationCommand('Explain the selected file.', context);
+  assert.equal(explainFile.recognized, true);
+  assert.equal(explainFile.intent, 'summarize-file');
+  assert.equal(explainFile.targetFilePath, 'src/middleware/auth.js');
+
+  const range = routeApplicationCommand('Explain code from line 5 to line 27', context);
+  assert.equal(range.recognized, true);
+  assert.equal(range.intent, 'explain-line-range');
+  assert.equal(range.explanation?.filePath, 'src/middleware/auth.js');
+  assert.deepEqual(range.explanation?.lineRange, [5, 27]);
+  assert.match(range.explanation?.evidenceSnippet ?? '', /authenticateRequest/);
+
+  const prRouteFile = routeApplicationCommand('Explain the selected file.', {
+    ...context,
+    currentRoute: 'pr' as const,
+    selectedPrFile: SAMPLE_PULL_REQUEST.files[1],
+  });
+  assert.equal(prRouteFile.recognized, true);
+  assert.equal(prRouteFile.explanation?.filePath, 'src/services/tokenService.js');
+
+  const invalidRange = routeApplicationCommand('Explain code from line 0 to line 5', context);
+  assert.equal(invalidRange.recognized, false);
+});

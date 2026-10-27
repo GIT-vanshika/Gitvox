@@ -414,15 +414,29 @@ export interface ModelCallDeps {
   fetchImpl?: typeof fetch;
 }
 
+export interface ModelChatOptions extends ModelCallDeps {
+  maxOutputTokens?: number;
+}
+
+export interface ModelChatResult {
+  text: string;
+  model: string;
+  provider: string;
+  usage?: ModelExplanation['usage'];
+  latencyMs: number;
+  generatedAt: string;
+}
+
 /**
- * Sends the validated request to the configured open-weight model and returns
- * the provider's genuine completion text plus provenance metadata.
+ * Shared OpenAI-compatible chat transport used by both the Phase 2 hunk review
+ * and the grounded voice assistant. Provider selection, credentials, timeouts,
+ * and error mapping remain server-side and unchanged.
  */
-export async function requestModelExplanation(
-  input: ModelExplainRequest,
+export async function callModelChat(
+  messages: BuiltPrompt['messages'],
   config: ModelConfig = getModelConfig(),
-  deps: ModelCallDeps = {}
-): Promise<ModelExplanation & { truncatedContext: boolean }> {
+  options: ModelChatOptions = {}
+): Promise<ModelChatResult> {
   if (!config.apiKey) {
     throw new ModelError(
       'not_configured',
@@ -432,8 +446,7 @@ export async function requestModelExplanation(
     );
   }
 
-  const { messages, truncated } = buildModelPrompt(input);
-  const fetchImpl = deps.fetchImpl || fetch;
+  const fetchImpl = options.fetchImpl || fetch;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
   const startedAt = Date.now();
@@ -455,7 +468,7 @@ export async function requestModelExplanation(
         model: config.model,
         messages,
         temperature: 0.2,
-        max_tokens: config.maxOutputTokens,
+        max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
         stream: false,
       }),
       signal: controller.signal,
@@ -500,7 +513,6 @@ export async function requestModelExplanation(
         : undefined,
       latencyMs: Date.now() - startedAt,
       generatedAt: new Date().toISOString(),
-      truncatedContext: truncated,
     };
   } catch (error) {
     if (error instanceof ModelError) throw error;
@@ -523,4 +535,18 @@ export async function requestModelExplanation(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Sends the validated PR-hunk request to the configured open-weight model and
+ * returns the provider's genuine completion text plus provenance metadata.
+ */
+export async function requestModelExplanation(
+  input: ModelExplainRequest,
+  config: ModelConfig = getModelConfig(),
+  deps: ModelCallDeps = {}
+): Promise<ModelExplanation & { truncatedContext: boolean }> {
+  const { messages, truncated } = buildModelPrompt(input);
+  const result = await callModelChat(messages, config, deps);
+  return { ...result, truncatedContext: truncated };
 }

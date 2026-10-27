@@ -1,15 +1,19 @@
 import {
   CommandResult,
   LoadedProject,
+  PRFileChange,
   ProjectFile,
   PullRequestData,
   ReviewFinding,
+  RouteId,
 } from '../types/gitvox';
 import {
   buildFileExplanation,
   buildFunctionExplanation,
+  buildLineRangeExplanation,
   buildProjectOverviewExplanation,
 } from './aiService';
+import { extractFunctionsFromSource } from './fileParser';
 
 export const SUPPORTED_VOICE_AND_TEXT_COMMANDS = [
   'Explain this project.',
@@ -19,21 +23,57 @@ export const SUPPORTED_VOICE_AND_TEXT_COMMANDS = [
   'Explain this pull request.',
   'Summarize the changes.',
   'Check these changes for potential bugs.',
+  'Explain the current PR.',
+  'Summarize the current PR.',
+  'Explain the selected file.',
+  'Explain code from line 5 to line 15.',
 ];
 
+export interface CommandRouterContext {
+  project: LoadedProject;
+  selectedFile: ProjectFile | null;
+  selectedFunctionName: string | null;
+  pullRequest: PullRequestData;
+  findings: ReviewFinding[];
+  currentRoute?: RouteId;
+  selectedPrFile?: PRFileChange | null;
+}
+
 /**
- * Deterministic local command router shared by both text commands and Alan AI voice intents.
+ * Adapts a changed PR file into the ProjectFile shape used by local explanations.
+ * The proposed side is the code the reviewer is currently looking at.
+ */
+function toProjectFile(file: PRFileChange): ProjectFile {
+  const name = file.path.split('/').pop() || file.path;
+  return {
+    path: file.path,
+    name,
+    folder: file.path.includes('/') ? file.path.slice(0, file.path.lastIndexOf('/')) : '',
+    language: file.language,
+    sizeBytes: file.proposedContent.length,
+    content: file.proposedContent,
+    functions: extractFunctionsFromSource(file.proposedContent, file.language),
+  };
+}
+
+/**
+ * Resolves "the selected file" from the active workspace: the changed PR file on
+ * the PR review route, otherwise the project workspace selection.
+ */
+export function resolveActiveFile(context: CommandRouterContext): ProjectFile {
+  if (context.currentRoute === 'pr' && context.selectedPrFile) {
+    return toProjectFile(context.selectedPrFile);
+  }
+  return context.selectedFile || context.project.files[0];
+}
+
+/**
+ * Deterministic local command router shared by both text commands and browser speech transcripts.
  * Never executes arbitrary actions on vague matches.
  */
 export function routeApplicationCommand(
   rawInput: string,
-  context: {
-    project: LoadedProject;
-    selectedFile: ProjectFile | null;
-    selectedFunctionName: string | null;
-    pullRequest: PullRequestData;
-    findings: ReviewFinding[];
-  }
+  context: CommandRouterContext
 ): CommandResult {
   const normalized = rawInput
     .trim()
@@ -69,14 +109,16 @@ export function routeApplicationCommand(
     };
   }
 
-  // 2. "Summarize this file" / "Explain this file"
+  // 2. "Summarize this file" / "Explain the selected file"
   if (
     normalized === 'summarize this file' ||
     normalized === 'explain this file' ||
     normalized === 'summarize file' ||
-    normalized === 'explain selected file'
+    normalized === 'explain selected file' ||
+    normalized === 'explain the selected file' ||
+    normalized === 'explain the current file'
   ) {
-    const targetFile = context.selectedFile || context.project.files[0];
+    const targetFile = resolveActiveFile(context);
     const explanation = buildFileExplanation(targetFile);
     explanation.sourceOrigin = 'command-router';
     return {
@@ -84,6 +126,43 @@ export function routeApplicationCommand(
       intent: 'summarize-file',
       targetFilePath: targetFile.path,
       responseTitle: `Summarized ${targetFile.name}`,
+      responseMessage: explanation.summary,
+      explanation,
+    };
+  }
+
+  // 2b. "Explain code from line X to line Y" (voice range intent / typed fallback)
+  const rangeMatch = normalized.match(
+    /^(?:please )?explain (?:the )?(?:code|range) (?:from )?(?:line )?(\d+) (?:to|through|until|and|-|–) (?:line )?(\d+)$/
+  );
+  if (rangeMatch) {
+    const requestedStart = Number(rangeMatch[1]);
+    const requestedEnd = Number(rangeMatch[2]);
+    if (
+      !Number.isInteger(requestedStart) ||
+      !Number.isInteger(requestedEnd) ||
+      requestedStart < 1 ||
+      requestedEnd < 1
+    ) {
+      return {
+        recognized: false,
+        intent: 'unknown',
+        responseTitle: 'Line Range Required',
+        responseMessage:
+          'Say or type a positive start and end line, for example "Explain code from line 5 to line 15".',
+      };
+    }
+
+    const targetFile = resolveActiveFile(context);
+    const explanation = buildLineRangeExplanation(targetFile, requestedStart, requestedEnd);
+    explanation.sourceOrigin = 'command-router';
+    const [rangeStart, rangeEnd] = explanation.lineRange || [requestedStart, requestedEnd];
+
+    return {
+      recognized: true,
+      intent: 'explain-line-range',
+      targetFilePath: targetFile.path,
+      responseTitle: `Code Range L${rangeStart}–L${rangeEnd} in ${targetFile.name}`,
       responseMessage: explanation.summary,
       explanation,
     };
@@ -170,11 +249,15 @@ export function routeApplicationCommand(
     }
   }
 
-  // 5. "Explain this pull request"
+  // 5. "Explain this pull request" / "Explain the current PR"
   if (
     normalized === 'explain this pull request' ||
+    normalized === 'explain the pull request' ||
     normalized === 'explain pull request' ||
-    normalized === 'explain pr'
+    normalized === 'explain pr' ||
+    normalized === 'explain the current pr' ||
+    normalized === 'explain current pr' ||
+    normalized === 'explain this pr'
   ) {
     const pr = context.pullRequest;
     return {
@@ -205,6 +288,10 @@ export function routeApplicationCommand(
   if (
     normalized === 'summarize the changes' ||
     normalized === 'summarize changes' ||
+    normalized === 'summarize the current pr' ||
+    normalized === 'summarize current pr' ||
+    normalized === 'summarize this pull request' ||
+    normalized === 'summarize the pull request' ||
     normalized === 'what changed'
   ) {
     const pr = context.pullRequest;

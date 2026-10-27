@@ -10,6 +10,10 @@ import {
   requestModelExplanation,
   validateExplainRequest,
 } from './modelClient';
+import {
+  requestAssistantExplanation,
+  validateAssistantRequest,
+} from './assistantClient';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // In dev this file runs from server/, while the esbuild bundle runs from the
@@ -105,6 +109,58 @@ app.post('/api/explain', async (req, res) => {
   }
 });
 
+app.post('/api/assistant/explain', async (req, res) => {
+  const requestKey = req.ip || 'unknown';
+  if (isRateLimited(requestKey)) {
+    res.status(429).json({
+      error: {
+        code: 'rate_limited',
+        message: 'Too many explanation requests. Wait a minute and try again.',
+        retryable: true,
+      },
+    });
+    return;
+  }
+
+  const startedAt = Date.now();
+  try {
+    const input = validateAssistantRequest(req.body);
+    const config = getModelConfig();
+    const explanation = await requestAssistantExplanation(input, config);
+    const { truncatedContext, ...publicExplanation } = explanation;
+
+    console.log(
+      `[assistant] ${input.action} ${input.file?.path ?? input.pullRequest?.repository ?? 'context'} ` +
+        `-> ${publicExplanation.model} ${Date.now() - startedAt}ms ` +
+        `tokens=${publicExplanation.usage?.totalTokens ?? 'n/a'}` +
+        `${truncatedContext ? ' (context truncated)' : ''}`
+    );
+
+    res.json({ explanation: { ...publicExplanation, truncatedContext } });
+  } catch (error) {
+    if (error instanceof ModelError) {
+      console.warn(`[assistant] ${error.code} status=${error.httpStatus} ${error.message}`);
+      res.status(error.httpStatus).json({
+        error: {
+          code: error.code,
+          message: error.message,
+          retryable: error.retryable,
+        },
+      });
+      return;
+    }
+
+    console.error('[assistant] unexpected error', error);
+    res.status(500).json({
+      error: {
+        code: 'internal_error',
+        message: 'Gitvox could not process the assistant request.',
+        retryable: true,
+      },
+    });
+  }
+});
+
 app.use('/api', (_req, res) => {
   res.status(404).json({
     error: {
@@ -114,7 +170,6 @@ app.use('/api', (_req, res) => {
     },
   });
 });
-
 if (existsSync(path.join(distDir, 'index.html'))) {
   app.use(express.static(distDir));
   app.get('*', (_req, res) => {

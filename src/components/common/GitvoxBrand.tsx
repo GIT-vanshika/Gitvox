@@ -12,41 +12,23 @@ export const GitvoxLogoMark: React.FC<{ className?: string }> = ({ className = '
     className={className}
     aria-hidden="true"
   >
-    {/* Left code bracket */}
     <path
       d="M7.5 6.5L3 12L7.5 17.5"
-      stroke="#397BFF"
+      stroke="var(--accent)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    {/* Right code bracket */}
     <path
       d="M16.5 6.5L21 12L16.5 17.5"
-      stroke="#397BFF"
+      stroke="var(--accent)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    {/* Center voice waveform bars */}
-    <path
-      d="M12 5.5V18.5"
-      stroke="#FF294F"
-      strokeWidth="2"
-      strokeLinecap="round"
-    />
-    <path
-      d="M9.75 9V15"
-      stroke="#F1F5FC"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-    />
-    <path
-      d="M14.25 9V15"
-      stroke="#F1F5FC"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-    />
+    <path d="M12 6V18" stroke="var(--text)" strokeWidth="1.75" strokeLinecap="round" />
+    <path d="M9.5 9V15" stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M14.5 9V15" stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
@@ -55,10 +37,10 @@ export const GitvoxWordmark: React.FC<GitvoxBrandProps> = ({ onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight text-[#F1F5FC] hover:text-[#5EA1FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-      aria-label="Gitvox Home"
+      className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap text-[15px] font-semibold tracking-tight text-ink transition-colors hover:text-accent cursor-pointer"
+      aria-label="Gitvox home"
     >
-      <GitvoxLogoMark className="w-5 h-5 shrink-0" />
+      <GitvoxLogoMark className="h-5 w-5 shrink-0" />
       <span>Gitvox</span>
     </button>
   );

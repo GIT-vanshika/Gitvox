@@ -3,9 +3,8 @@ import { HomePage } from './pages/HomePage';
 import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
 import { PullRequestPage } from './pages/PullRequestPage';
-import { VoiceCommandModal } from './components/voice/VoiceCommandBar';
-import { ImmersiveBackdrop } from './components/effects/ImmersiveBackdrop';
-import { ScrollProgress } from './components/effects/ScrollProgress';
+import { ChatDrawer } from './components/chat/ChatDrawer';
+import { FloatingMic } from './components/common/FloatingMic';
 import { SAMPLE_PROJECT } from './data/sampleProject';
 import { SAMPLE_PULL_REQUEST } from './data/samplePullRequest';
 import { SAMPLE_FINDINGS } from './data/sampleFindings';
@@ -17,6 +16,13 @@ import {
   buildProjectOverviewExplanation,
 } from './services/aiService';
 import { routeApplicationCommand } from './services/commandRouter';
+import { interpretVoiceTranscript } from './services/voiceCommands';
+import { buildAssistantRequest } from './services/assistantRequest';
+import { explainAssistantWithModel, toModelErrorInfo } from './services/modelService';
+import {
+  friendlyAssistantError,
+  type VoiceRequestResult,
+} from './services/voiceAssistant';
 import {
   AIExplanation,
   CodeFunction,
@@ -57,7 +63,9 @@ export function App() {
     buildFileExplanation(SAMPLE_PROJECT.files[0]),
   ]);
 
-  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantAutoStart, setAssistantAutoStart] = useState(false);
+  const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [lastCommandResult, setLastCommandResult] = useState<CommandResult | null>(null);
 
   useEffect(() => {
@@ -85,6 +93,7 @@ export function App() {
 
   const handleProjectLoaded = (newProject: LoadedProject) => {
     setLoadedProject(newProject);
+    setHasUploadedFile(newProject.sourceType !== 'sample');
     const firstFile = newProject.files[0];
     setSelectedProjectFilePath(firstFile.path);
     setSelectedFunctionName(firstFile.functions[0]?.name || null);
@@ -132,6 +141,9 @@ export function App() {
       selectedFunctionName,
       pullRequest: SAMPLE_PULL_REQUEST,
       findings: SAMPLE_FINDINGS,
+      currentRoute,
+      selectedPrFile:
+        SAMPLE_PULL_REQUEST.files.find((file) => file.path === selectedPrFilePath) || null,
     });
 
     setLastCommandResult(result);
@@ -170,6 +182,60 @@ export function App() {
     handleExecuteCommand(question);
   };
 
+  /**
+   * Opens the assistant drawer. The floating microphone requests an automatic
+   * listening session; page-level text buttons open the drawer idle.
+   */
+  const openAssistant = (autoStart = false) => {
+    setAssistantAutoStart(autoStart);
+    setAssistantOpen(true);
+  };
+
+  /**
+   * Every voice request is grounded in the current route-aware context and sent
+   * through the existing server-side model bridge. Clarification is returned
+   * before any model call when the transcript is ambiguous.
+   */
+  const handleVoiceRequest = async (transcript: string): Promise<VoiceRequestResult> => {
+    const match = interpretVoiceTranscript(transcript);
+
+    if (match.kind === 'clarify') {
+      return { kind: 'clarification', message: match.message };
+    }
+    if (match.kind === 'unsupported') {
+      return { kind: 'error', message: match.message, retryable: false };
+    }
+
+    const built = buildAssistantRequest(match, {
+      route: currentRoute,
+      pullRequest: SAMPLE_PULL_REQUEST,
+      selectedPrFile:
+        SAMPLE_PULL_REQUEST.files.find((file) => file.path === selectedPrFilePath) || null,
+      project: loadedProject,
+      selectedFile: activeProjectFile,
+      selectedFunctionName,
+    });
+
+    if (!built.ok) {
+      return { kind: 'clarification', message: built.reason };
+    }
+
+    setSystemStatus('Analyzing');
+    try {
+      const explanation = await explainAssistantWithModel(built.request);
+      setSystemStatus('Completed');
+      return { kind: 'answer', title: built.title, explanation };
+    } catch (error) {
+      setSystemStatus('Failed');
+      const info = toModelErrorInfo(error);
+      return {
+        kind: 'error',
+        message: friendlyAssistantError(info),
+        retryable: info.retryable,
+      };
+    }
+  };
+
   const handleExplainDiffHunk = (filePath: string, hunk: DiffHunk, fileSummary: string) => {
     const exp = buildDiffHunkExplanation(filePath, hunk, fileSummary);
     setExplanations((prev) => [exp, ...prev]);
@@ -184,22 +250,15 @@ export function App() {
   };
 
   const handleResetWorkspace = () => {
+    setHasUploadedFile(false);
     setSystemStatus('Idle');
     setCurrentRoute('explore');
   };
 
   return (
-    <div className="relative isolate min-h-screen bg-transparent text-[#F1F5FC]">
-      <ImmersiveBackdrop />
-      <ScrollProgress />
-
-      <div className="relative z-10">
-        {currentRoute === 'home' && (
-          <HomePage
-            onNavigate={handleNavigate}
-            onOpenVoiceModal={() => setVoiceModalOpen(true)}
-          />
-        )}
+    <div className="min-h-screen bg-page text-ink">
+      <main>
+        {currentRoute === 'home' && <HomePage onNavigate={handleNavigate} />}
 
         {currentRoute === 'explore' && (
           <StartExploringPage
@@ -224,7 +283,6 @@ export function App() {
             onExecuteCommand={handleExecuteCommand}
             onResetWorkspace={handleResetWorkspace}
             onNavigate={handleNavigate}
-            onOpenVoiceModal={() => setVoiceModalOpen(true)}
             systemStatus={systemStatus}
           />
         )}
@@ -241,17 +299,19 @@ export function App() {
             onExplainHunk={handleExplainDiffHunk}
             onExecuteCommand={handleExecuteCommand}
             onNavigate={handleNavigate}
-            onOpenVoiceModal={() => setVoiceModalOpen(true)}
           />
         )}
-      </div>
+      </main>
 
-      <VoiceCommandModal
-        isOpen={voiceModalOpen}
-        onClose={() => setVoiceModalOpen(false)}
-        onExecuteCommand={handleExecuteCommand}
-        lastCommandResult={lastCommandResult}
+      <ChatDrawer
+        isOpen={assistantOpen}
+        autoStart={assistantAutoStart}
+        onClose={() => setAssistantOpen(false)}
+        onAutoStartHandled={() => setAssistantAutoStart(false)}
+        onVoiceRequest={handleVoiceRequest}
       />
+
+      <FloatingMic onClick={() => openAssistant(true)} hidden={assistantOpen} />
     </div>
   );
 }

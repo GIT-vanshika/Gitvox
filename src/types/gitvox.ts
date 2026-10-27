@@ -206,6 +206,65 @@ export interface ModelErrorInfo {
   retryable: boolean;
 }
 
+export type AssistantAction =
+  | 'explain-pr'
+  | 'summarize-pr'
+  | 'explain-file'
+  | 'explain-range'
+  | 'explain-function';
+
+export interface AssistantPrFileContext {
+  path: string;
+  language: string;
+  summary: string;
+  baseContent: string;
+  proposedContent: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface AssistantProjectContext {
+  name: string;
+  description: string;
+  files: Array<{ path: string; language: string }>;
+}
+
+export interface AssistantFunctionContext {
+  name: string;
+  signature: string;
+  summary: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface AssistantFileContext {
+  path: string;
+  language: string;
+  summary: string;
+  content: string;
+  functions: AssistantFunctionContext[];
+}
+
+export interface AssistantRequest {
+  action: AssistantAction;
+  transcript: string;
+  pullRequest?: {
+    number: number;
+    title: string;
+    repository: string;
+    author: string;
+    sourceBranch: string;
+    targetBranch: string;
+    overview: string;
+    purpose: string;
+    files: AssistantPrFileContext[];
+  };
+  project?: AssistantProjectContext;
+  file?: AssistantFileContext;
+  range?: { startLine: number; endLine: number };
+  function?: { name: string; startLine: number; endLine: number };
+}
+
 export interface CommandResult {
   recognized: boolean;
   intent:
@@ -216,6 +275,7 @@ export interface CommandResult {
     | 'explain-pr'
     | 'summarize-changes'
     | 'check-bugs'
+    | 'explain-line-range'
     | 'navigate-finding'
     | 'unknown';
   targetFilePath?: string;
