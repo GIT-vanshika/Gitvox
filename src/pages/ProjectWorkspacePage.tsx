@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
+import { FileTree } from '../components/common/FileTree';
 import {
   CodeFunction,
   LoadedProject,
@@ -117,18 +118,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
       setCursorPosition({ line: e.position.lineNumber, col: e.position.column });
     });
   };
-
-  // Group files into folder hierarchy for tree
-  const folderTree = useMemo(() => {
-    const map: Record<string, ProjectFile[]> = {};
-    project.files.forEach((file) => {
-      const parts = file.path.split('/');
-      const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : 'root';
-      if (!map[folder]) map[folder] = [];
-      map[folder].push(file);
-    });
-    return map;
-  }, [project.files]);
 
   return (
     <div className="bg-surface text-on-surface font-body-md text-body-md min-h-screen flex flex-col selection:bg-primary/25 selection:text-primary">
@@ -319,41 +308,22 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 })}
               </div>
 
-              {/* REPO DIRECTORY TREE */}
+              {/* FILES TREE SECTION */}
               <div className="py-space-xs">
-                <div className="px-space-sm py-1 flex items-center gap-1 text-outline cursor-pointer hover:text-on-surface">
-                  <span className="material-symbols-outlined text-[14px]">expand_more</span>
-                  <span className="tracking-widest text-[10px] font-semibold">SRC • REPO TREE</span>
+                <div className="px-space-sm py-1 flex items-center justify-between text-outline cursor-pointer hover:text-on-surface border-b border-surface-container-high/40 pb-1.5 mb-1">
+                  <span className="tracking-wider text-[11px] font-bold uppercase font-telemetry-tag">
+                    FILES
+                  </span>
+                  <span className="material-symbols-outlined text-[16px] text-outline">
+                    folder_open
+                  </span>
                 </div>
 
-                {/* Tree Folders & Files */}
-                {Object.entries(folderTree).map(([folder, files]) => (
-                  <div key={folder} className="pl-2 space-y-0.5 pt-1">
-                    <div className="px-space-sm py-1 flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface cursor-pointer">
-                      <span className="material-symbols-outlined text-[14px] text-secondary">folder</span>
-                      <span>{folder}</span>
-                    </div>
-                    {files.map((file) => {
-                      const isCurrent = file.path === activeFile.path;
-                      return (
-                        <div
-                          key={file.path}
-                          onClick={() => onSelectFile(file.path)}
-                          className={`pl-5 pr-2 py-1 rounded flex items-center justify-between cursor-pointer transition-colors ${
-                            isCurrent
-                              ? 'bg-surface-container text-on-surface font-semibold border-l-2 border-primary'
-                              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container/40'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 truncate">
-                            <span className="material-symbols-outlined text-[15px] text-primary">javascript</span>
-                            <span className="truncate">{file.name}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                <FileTree
+                  files={project.files}
+                  selectedFilePath={activeFile.path}
+                  onSelectFile={onSelectFile}
+                />
               </div>
             </div>
 
