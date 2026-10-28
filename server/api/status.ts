@@ -14,3 +14,4 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   sendJson(res, 200, getPublicModelStatus());
 }
+

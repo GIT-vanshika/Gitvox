@@ -36,3 +36,4 @@ export function sendJson(res: ServerResponse, statusCode: number, data: unknown)
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.end(JSON.stringify(data));
 }
+

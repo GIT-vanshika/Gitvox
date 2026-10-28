@@ -1,17 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Loader2, Mic, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Mic, Send, Square, X } from 'lucide-react';
 import {
   createSpeechRecognitionSession,
   isSpeechRecognitionSupported,
   type SpeechRecognitionSession,
 } from '../../services/speechRecognition';
 import type { VoiceRequestResult } from '../../services/voiceAssistant';
-import type { ModelExplanation } from '../../types/gitvox';
 import { AssistantMarkdown } from '../voice/AssistantMarkdown';
 
 interface ChatDrawerProps {
   isOpen: boolean;
   autoStart: boolean;
+  initialMode?: 'voice' | 'chat';
   onClose: () => void;
   onAutoStartHandled: () => void;
   onVoiceRequest: (transcript: string) => Promise<VoiceRequestResult>;
@@ -48,22 +48,27 @@ function conciseSpeechError(code: string, fallback: string): string {
   }
 }
 
-function welcomeMessage(): ChatMessage {
+function welcomeMessage(mode: 'voice' | 'chat'): ChatMessage {
   return {
     id: 'welcome',
     role: 'assistant',
-    text: 'Ask about the current pull request, a selected file, or a line range. Type below or use the microphone.',
+    text:
+      mode === 'voice'
+        ? 'Voice-first code intelligence ready. Tap the microphone below and ask about the current pull request, a selected file, or a line range.'
+        : 'Ask about the current pull request, a selected file, or a line range. Type below or use the microphone.',
   };
 }
 
 export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   isOpen,
   autoStart,
+  initialMode = 'voice',
   onClose,
   onAutoStartHandled,
   onVoiceRequest,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage()]);
+  const [mode, setMode] = useState<'voice' | 'chat'>(initialMode);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [welcomeMessage(initialMode)]);
   const [isThinking, setIsThinking] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('idle');
   const [voiceError, setVoiceError] = useState('');
@@ -83,6 +88,12 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const micRef = useRef<HTMLButtonElement | null>(null);
   const runRequestRef = useRef<(transcript: string) => Promise<void>>(async () => {});
   const startListeningRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (isOpen && initialMode) {
+      setMode(initialMode);
+    }
+  }, [isOpen, initialMode]);
 
   useEffect(() => {
     requestHandlerRef.current = onVoiceRequest;
@@ -150,12 +161,14 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           retryTranscript: text,
         });
       }
-    } catch {
+    } catch (error) {
       if (generation !== requestGenerationRef.current) return;
+      const message =
+        error instanceof Error ? error.message : 'I could not generate an explanation. Please try again.';
       appendMessage({
         role: 'assistant',
-        text: 'I could not generate an explanation. Please try again.',
         variant: 'error',
+        text: message,
         retryTranscript: text,
       });
     } finally {
@@ -171,42 +184,20 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const startListening = () => {
     if (!isSupported) {
       setVoiceStatus('unsupported');
-      setVoiceError('Voice is unavailable in this browser. Type your question below.');
-      inputRef.current?.focus();
-      return;
-    }
-    if (inFlightRef.current) return;
-
-    setVoiceError('');
-    setVoiceStatus('listening');
-    sessionRef.current?.start();
-  };
-
-  startListeningRef.current = startListening;
-
-  useEffect(() => {
-    requestGenerationRef.current += 1;
-    inFlightRef.current = false;
-    if (!isOpen) return;
-
-    lastHandledRef.current = { text: '', at: 0 };
-    setVoiceError('');
-    setTextInput('');
-
-    if (!isSupported) {
-      setVoiceStatus('unsupported');
-      setVoiceError('Voice is unavailable in this browser. Type your question below.');
-      window.setTimeout(() => inputRef.current?.focus(), 80);
+      setVoiceError('Voice is unavailable in this browser. Please use text chat.');
       return;
     }
 
-    setVoiceStatus('idle');
+    sessionRef.current?.dispose();
+    sessionRef.current = null;
+    setVoiceError('');
+
     const session = createSpeechRecognitionSession({
       onStatus: (next) => {
         if (next === 'listening') setVoiceStatus('listening');
         if (next === 'unsupported') {
           setVoiceStatus('unsupported');
-          setVoiceError('Voice is unavailable in this browser. Type your question below.');
+          setVoiceError('Voice is unavailable in this browser. Please use text chat.');
         }
       },
       onFinalTranscript: (transcript) => {
@@ -218,54 +209,58 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         setVoiceError(conciseSpeechError(error.code, error.message));
       },
     });
+
     sessionRef.current = session;
+    session.start();
+  };
 
-    const focusTimer = window.setTimeout(() => {
-      if (autoStartRef.current) {
-        micRef.current?.focus();
-      } else {
-        inputRef.current?.focus();
-      }
-    }, 80);
+  startListeningRef.current = startListening;
 
-    return () => {
+  useEffect(() => {
+    if (!isOpen) {
       requestGenerationRef.current += 1;
       inFlightRef.current = false;
-      window.clearTimeout(focusTimer);
-      session.dispose();
+      sessionRef.current?.dispose();
       sessionRef.current = null;
-    };
-  }, [isOpen, isSupported]);
+      setVoiceStatus('idle');
+      setVoiceError('');
+      setIsThinking(false);
+      return;
+    }
+
+    if (autoStartRef.current) {
+      autoStartHandledRef.current();
+      const timer = window.setTimeout(() => {
+        startListeningRef.current();
+      }, 100);
+      return () => window.clearTimeout(timer);
+    } else if (mode === 'chat') {
+      const timer = window.setTimeout(() => {
+        inputRef.current?.focus();
+      }, 120);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isOpen, mode]);
 
   useEffect(() => {
-    if (!isOpen || !autoStart) return;
-    autoStartHandledRef.current();
-    if (!isSupported) return;
-    const timer = window.setTimeout(() => startListeningRef.current(), 0);
-    return () => window.clearTimeout(timer);
-  }, [isOpen, autoStart, isSupported]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, isThinking]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    return () => {
+      sessionRef.current?.dispose();
+    };
+  }, []);
 
   const handleTextSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    const trimmed = textInput.trim();
-    if (!trimmed || isThinking) return;
+    const query = textInput.trim();
+    if (!query || isThinking) return;
     setTextInput('');
-    void runRequest(trimmed);
+    void runRequest(query);
   };
 
   const handleMicClick = () => {
@@ -290,23 +285,55 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Gitvox chat"
+        aria-label="Gitvox assistant"
         onClick={(event) => event.stopPropagation()}
-        className="chat-drawer flex h-full max-h-[100dvh] w-full max-w-full flex-col border-l border-line bg-page sm:max-w-[420px]"
+        className="chat-drawer flex h-full max-h-[100dvh] w-full max-w-full flex-col border-l border-line bg-page sm:max-w-[440px]"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line bg-[var(--bg-subtle)] px-4 py-3">
+        <header className="flex items-center justify-between gap-3 border-b border-line bg-[var(--bg-subtle)] px-4 py-3">
           <div>
             <h2 className="text-sm font-semibold text-ink">Gitvox results</h2>
-            <p className="mt-0.5 text-[11px] text-faint">Ask about the current code or PR.</p>
+            <p className="mt-0.5 text-[11px] text-faint">
+              {mode === 'voice' ? 'Voice assistant mode' : 'Interactive text chat'}
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close chat"
-            className="btn btn-ghost btn-icon btn-sm"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border border-line bg-page p-0.5">
+              <button
+                type="button"
+                onClick={() => setMode('voice')}
+                aria-label="Switch to voice mode"
+                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                  mode === 'voice'
+                    ? 'bg-[var(--accent-soft)] text-accent font-semibold'
+                    : 'text-faint hover:text-ink'
+                }`}
+              >
+                <Mic className="h-3 w-3" aria-hidden="true" />
+                Voice
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('chat')}
+                aria-label="Switch to text chat mode"
+                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                  mode === 'chat'
+                    ? 'bg-[var(--accent-soft)] text-accent font-semibold'
+                    : 'text-faint hover:text-ink'
+                }`}
+              >
+                <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                Chat
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close assistant"
+              className="btn btn-ghost btn-icon btn-sm"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-5" aria-live="polite">
@@ -379,17 +406,15 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           </div>
         </div>
 
-        <div className="border-t border-line bg-[var(--bg-subtle)] px-3 py-3">
-          {voiceError && (
-            <p className="mb-2 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--warning)]">
-              {voiceError}
-            </p>
-          )}
-          <form onSubmit={handleTextSubmit}>
-            <label htmlFor="chat-input" className="sr-only">
-              Ask Gitvox
-            </label>
-            <div className="flex items-center gap-2">
+        {/* Voice-First Mode: ONLY the microphone control, no text input bar */}
+        {mode === 'voice' ? (
+          <div className="border-t border-line bg-[var(--bg-subtle)] px-4 py-4">
+            {voiceError && (
+              <p className="mb-3 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--warning)]">
+                {voiceError}
+              </p>
+            )}
+            <div className="flex flex-col items-center justify-center gap-2">
               <button
                 ref={micRef}
                 type="button"
@@ -397,50 +422,112 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                 disabled={!isSupported || isThinking}
                 aria-label={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
                 title={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
-                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`inline-flex h-14 w-14 items-center justify-center rounded-full border transition-all cursor-pointer ${
                   voiceStatus === 'listening'
-                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416]'
-                    : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)]'
+                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416] scale-105 shadow-lg'
+                    : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)] hover:scale-105'
                 }`}
               >
                 {voiceStatus === 'listening' ? (
-                  <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                  <Square className="h-6 w-6" aria-hidden="true" />
                 ) : (
-                  <Mic className="h-4 w-4" aria-hidden="true" />
+                  <Mic className="h-6 w-6" aria-hidden="true" />
                 )}
               </button>
-              <input
-                ref={inputRef}
-                id="chat-input"
-                type="text"
-                value={textInput}
-                onChange={(event) => setTextInput(event.target.value)}
-                placeholder={
-                  voiceStatus === 'listening'
-                    ? 'Listening…'
-                    : 'Ask about this PR, a file, or lines 20–35…'
-                }
-                className="field min-w-0 flex-1"
-              />
+              <p className="text-[12px] font-medium text-body">
+                {voiceStatus === 'listening' ? (
+                  <span className="text-accent font-semibold animate-pulse">
+                    Listening… speak your question
+                  </span>
+                ) : isThinking ? (
+                  <span className="text-faint">Processing with model…</span>
+                ) : (
+                  <span className="text-faint">Tap microphone to speak</span>
+                )}
+              </p>
               <button
-                type="submit"
-                aria-label="Send message"
-                disabled={isThinking || !textInput.trim()}
-                className="btn btn-primary btn-icon shrink-0"
+                type="button"
+                onClick={() => setMode('chat')}
+                className="mt-1 text-[11px] text-faint hover:text-accent underline cursor-pointer"
               >
-                <Send className="h-4 w-4" aria-hidden="true" />
+                Want to type? Switch to text chat
               </button>
             </div>
-          </form>
-          {voiceStatus === 'listening' && (
-            <p className="mt-2 text-[10px] font-medium text-accent">Listening…</p>
-          )}
-          {!isSupported && (
-            <p className="mt-2 text-[10px] text-faint">
-              Voice is unavailable in this browser. Text input still works.
-            </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* Text Chat Mode: Input text box + Send button + Microphone */
+          <div className="border-t border-line bg-[var(--bg-subtle)] px-3 py-3">
+            {voiceError && (
+              <p className="mb-2 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--warning)]">
+                {voiceError}
+              </p>
+            )}
+            <form onSubmit={handleTextSubmit}>
+              <label htmlFor="chat-input" className="sr-only">
+                Ask Gitvox
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  ref={micRef}
+                  type="button"
+                  onClick={handleMicClick}
+                  disabled={!isSupported || isThinking}
+                  aria-label={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
+                  title={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
+                    voiceStatus === 'listening'
+                      ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416]'
+                      : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)]'
+                  }`}
+                >
+                  {voiceStatus === 'listening' ? (
+                    <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <Mic className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
+                <input
+                  ref={inputRef}
+                  id="chat-input"
+                  type="text"
+                  value={textInput}
+                  onChange={(event) => setTextInput(event.target.value)}
+                  placeholder={
+                    voiceStatus === 'listening'
+                      ? 'Listening…'
+                      : 'Ask about this PR, a file, or lines 20–35…'
+                  }
+                  className="field min-w-0 flex-1"
+                />
+                <button
+                  type="submit"
+                  aria-label="Send message"
+                  disabled={isThinking || !textInput.trim()}
+                  className="btn btn-primary btn-icon shrink-0"
+                >
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </form>
+            {voiceStatus === 'listening' && (
+              <p className="mt-2 text-[10px] font-medium text-accent">Listening…</p>
+            )}
+            <div className="mt-2 flex items-center justify-between text-[10px] text-faint">
+              {!isSupported ? (
+                <span>Voice unavailable in this browser.</span>
+              ) : (
+                <span>Text and voice enabled</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setMode('voice')}
+                className="hover:text-accent underline cursor-pointer"
+              >
+                Switch to voice-only
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

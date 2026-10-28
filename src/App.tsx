@@ -4,7 +4,7 @@ import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
 import { PullRequestPage } from './pages/PullRequestPage';
 import { ChatDrawer } from './components/chat/ChatDrawer';
-import { FloatingMic } from './components/common/FloatingMic';
+import { FloatingActions } from './components/common/FloatingMic';
 import { SAMPLE_PROJECT } from './data/sampleProject';
 import { SAMPLE_PULL_REQUEST } from './data/samplePullRequest';
 import { SAMPLE_FINDINGS } from './data/sampleFindings';
@@ -64,6 +64,7 @@ export function App() {
 
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantAutoStart, setAssistantAutoStart] = useState(false);
+  const [assistantMode, setAssistantMode] = useState<'voice' | 'chat'>('voice');
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [lastCommandResult, setLastCommandResult] = useState<CommandResult | null>(null);
 
@@ -186,7 +187,20 @@ export function App() {
    * listening session right away; page-level text buttons open the drawer idle.
    */
   const openAssistant = (autoStart = false) => {
+    setAssistantMode('voice');
     setAssistantAutoStart(autoStart);
+    setAssistantOpen(true);
+  };
+
+  const openVoiceAssistant = (autoStart = true) => {
+    setAssistantMode('voice');
+    setAssistantAutoStart(autoStart);
+    setAssistantOpen(true);
+  };
+
+  const openChatAssistant = () => {
+    setAssistantMode('chat');
+    setAssistantAutoStart(false);
     setAssistantOpen(true);
   };
 
@@ -378,6 +392,7 @@ export function App() {
             onExplainHunk={handleExplainDiffHunk}
             onExecuteCommand={handleExecuteCommand}
             onNavigate={handleNavigate}
+            onOpenChat={openChatAssistant}
           />
         )}
       </main>
@@ -385,15 +400,17 @@ export function App() {
       <ChatDrawer
         isOpen={assistantOpen}
         autoStart={assistantAutoStart}
+        initialMode={assistantMode}
         onClose={() => setAssistantOpen(false)}
         onAutoStartHandled={() => setAssistantAutoStart(false)}
         onVoiceRequest={handleVoiceRequest}
       />
 
-      <FloatingMic
-        onClick={() => openAssistant(true)}
+      <FloatingActions
+        onVoiceClick={() => openVoiceAssistant(true)}
+        onChatClick={openChatAssistant}
         hidden={assistantOpen}
-        state={
+        voiceState={
           systemStatus === 'Analyzing'
             ? 'processing'
             : systemStatus === 'Failed'

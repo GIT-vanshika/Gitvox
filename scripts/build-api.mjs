@@ -36,3 +36,4 @@ await Promise.all([
 ]);
 
 console.log('✓ Successfully bundled Vercel serverless API handlers into api/*.js');
+
