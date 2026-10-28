@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HomePage } from './pages/HomePage';
 import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
@@ -23,6 +23,11 @@ import {
   friendlyAssistantError,
   type VoiceRequestResult,
 } from './services/voiceAssistant';
+import {
+  createSpeechRecognitionSession,
+  isSpeechRecognitionSupported,
+  type SpeechRecognitionSession,
+} from './services/speechRecognition';
 import {
   AIExplanation,
   CodeFunction,
@@ -68,9 +73,44 @@ export function App() {
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [lastCommandResult, setLastCommandResult] = useState<CommandResult | null>(null);
 
+  // Background wake word detection listener
+  const wakeSessionRef = useRef<SpeechRecognitionSession | null>(null);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [currentRoute]);
+
+  // Set up background wake word listener when assistant is closed
+  useEffect(() => {
+    if (assistantOpen || !isSpeechRecognitionSupported()) {
+      if (wakeSessionRef.current) {
+        wakeSessionRef.current.dispose();
+        wakeSessionRef.current = null;
+      }
+      return;
+    }
+
+    try {
+      const session = createSpeechRecognitionSession({
+        continuous: true,
+        onWakeWordDetected: (commandAfter) => {
+          // Wake word "Gitvox" detected! Open assistant and trigger listening
+          openAssistant(true);
+        },
+      });
+      session.start();
+      wakeSessionRef.current = session;
+    } catch {
+      // Background wake listening fallback
+    }
+
+    return () => {
+      if (wakeSessionRef.current) {
+        wakeSessionRef.current.dispose();
+        wakeSessionRef.current = null;
+      }
+    };
+  }, [assistantOpen]);
 
   const activeProjectFile = useMemo(() => {
     return (
@@ -314,7 +354,16 @@ export function App() {
       <FloatingMic
         onClick={() => openAssistant(true)}
         hidden={assistantOpen}
-        state={systemStatus === 'Analyzing' ? 'processing' : systemStatus === 'Failed' ? 'error' : 'idle'}
+        state={
+          systemStatus === 'Analyzing'
+            ? 'processing'
+            : systemStatus === 'Failed'
+            ? 'error'
+            : isSpeechRecognitionSupported()
+            ? 'wake-listening'
+            : 'idle'
+        }
+        wakeWordEnabled={isSpeechRecognitionSupported()}
       />
     </div>
   );

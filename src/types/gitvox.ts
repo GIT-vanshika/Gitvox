@@ -211,7 +211,11 @@ export type AssistantAction =
   | 'summarize-pr'
   | 'explain-file'
   | 'explain-range'
-  | 'explain-function';
+  | 'explain-function'
+  | 'check-pr-errors'
+  | 'check-security'
+  | 'check-file-errors'
+  | 'ask-repo';
 
 export interface AssistantPrFileContext {
   path: string;
@@ -277,6 +281,10 @@ export interface CommandResult {
     | 'check-bugs'
     | 'explain-line-range'
     | 'navigate-finding'
+    | 'check-pr-errors'
+    | 'check-security'
+    | 'check-file-errors'
+    | 'ask-repo'
     | 'unknown';
   targetFilePath?: string;
   targetFindingId?: string;

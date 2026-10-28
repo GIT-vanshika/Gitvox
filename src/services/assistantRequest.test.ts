@@ -51,6 +51,52 @@ test('summarize request uses the same real PR context with a summary action', ()
   assert.match(built.title, /Summary/);
 });
 
+test('security check request carries PR context and sets check-security action', () => {
+  const match = interpretVoiceTranscript('Run a security analysis');
+  assert.equal(match.kind, 'check-security');
+
+  const built = buildAssistantRequest(match, prContext);
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.request.action, 'check-security');
+  assert.match(built.title, /Security Audit/);
+  assert.equal(built.request.pullRequest?.files.length, SAMPLE_PULL_REQUEST.files.length);
+});
+
+test('PR error check request carries full diff context', () => {
+  const match = interpretVoiceTranscript('Check this PR for errors');
+  assert.equal(match.kind, 'check-pr-errors');
+
+  const built = buildAssistantRequest(match, prContext);
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.request.action, 'check-pr-errors');
+  assert.match(built.title, /Error Analysis/);
+});
+
+test('file error check request carries file context', () => {
+  const match = interpretVoiceTranscript('Check this file for errors');
+  assert.equal(match.kind, 'check-file-errors');
+
+  const built = buildAssistantRequest(match, prContext);
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.request.action, 'check-file-errors');
+  assert.match(built.title, /File Bug Audit/);
+  assert.equal(built.request.file?.path, 'src/services/tokenService.js');
+});
+
+test('ask-repo request carries repo context and question transcript', () => {
+  const match = interpretVoiceTranscript('How does the token authentication work?');
+  assert.equal(match.kind, 'ask-repo');
+
+  const built = buildAssistantRequest(match, prContext);
+  assert.equal(built.ok, true);
+  if (!built.ok) return;
+  assert.equal(built.request.action, 'ask-repo');
+  assert.equal(built.request.transcript, 'How does the token authentication work?');
+});
+
 test('selected-file request resolves the PR file on the PR route', () => {
   const match = interpretVoiceTranscript('Walk me through this file');
   assert.equal(match.kind, 'explain-file');

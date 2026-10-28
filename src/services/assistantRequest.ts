@@ -74,14 +74,38 @@ export function buildAssistantRequest(
 
   const transcript = match.transcript;
 
-  if (match.kind === 'explain-pr' || match.kind === 'summarize-pr') {
+  if (
+    match.kind === 'explain-pr' ||
+    match.kind === 'summarize-pr' ||
+    match.kind === 'check-pr-errors' ||
+    match.kind === 'check-security' ||
+    match.kind === 'ask-repo'
+  ) {
     const pr = context.pullRequest;
+    let title = `PR #${pr.number} · ${pr.title}`;
+    if (match.kind === 'summarize-pr') {
+      title = `Summary · PR #${pr.number}`;
+    } else if (match.kind === 'check-pr-errors') {
+      title = `Error Analysis · PR #${pr.number}`;
+    } else if (match.kind === 'check-security') {
+      title = `Security Audit · PR #${pr.number}`;
+    } else if (match.kind === 'ask-repo') {
+      title = `Repository Q&A`;
+    }
+
+    const activeFile = resolveActiveFile({
+      project: context.project,
+      selectedFile: context.selectedFile,
+      selectedFunctionName: context.selectedFunctionName,
+      pullRequest: context.pullRequest,
+      findings: [],
+      currentRoute: context.route,
+      selectedPrFile: context.selectedPrFile,
+    });
+
     return {
       ok: true,
-      title:
-        match.kind === 'summarize-pr'
-          ? `Summary · PR #${pr.number}`
-          : `PR #${pr.number} · ${pr.title}`,
+      title,
       request: {
         action: match.kind,
         transcript,
@@ -104,6 +128,7 @@ export function buildAssistantRequest(
             deletions: file.expectedDeletions,
           })),
         },
+        file: buildFileContext(activeFile),
         project: buildProjectContext(context.project),
       },
     };
@@ -119,12 +144,12 @@ export function buildAssistantRequest(
     selectedPrFile: context.selectedPrFile,
   });
 
-  if (match.kind === 'explain-file') {
+  if (match.kind === 'explain-file' || match.kind === 'check-file-errors') {
     return {
       ok: true,
-      title: file.path,
+      title: match.kind === 'check-file-errors' ? `File Bug Audit · ${file.path}` : file.path,
       request: {
-        action: 'explain-file',
+        action: match.kind,
         transcript,
         file: buildFileContext(file),
         project: buildProjectContext(context.project),

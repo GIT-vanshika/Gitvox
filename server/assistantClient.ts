@@ -31,6 +31,10 @@ const ACTIONS: AssistantAction[] = [
   'explain-file',
   'explain-range',
   'explain-function',
+  'check-pr-errors',
+  'check-security',
+  'check-file-errors',
+  'ask-repo',
 ];
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
@@ -213,10 +217,16 @@ export function validateAssistantRequest(raw: unknown): AssistantRequest {
     };
   }
 
-  if ((action === 'explain-pr' || action === 'summarize-pr') && !request.pullRequest) {
+  if (
+    (action === 'explain-pr' || action === 'summarize-pr' || action === 'check-pr-errors') &&
+    !request.pullRequest
+  ) {
     throw new ModelError('invalid_request', 'A pull-request context is required for this action.', 400, false);
   }
   if (action === 'explain-file' && !request.file) {
+    throw new ModelError('invalid_request', 'A file context is required for this action.', 400, false);
+  }
+  if (action === 'check-file-errors' && !request.file) {
     throw new ModelError('invalid_request', 'A file context is required for this action.', 400, false);
   }
   if (action === 'explain-range' && (!request.file || !request.range)) {
@@ -229,6 +239,9 @@ export function validateAssistantRequest(raw: unknown): AssistantRequest {
       400,
       false
     );
+  }
+  if (action === 'check-security' && !request.pullRequest && !request.file) {
+    throw new ModelError('invalid_request', 'Pull-request or file context is required for security checks.', 400, false);
   }
 
   return request;
@@ -309,6 +322,47 @@ function actionInstruction(action: AssistantAction): string {
         'Explain the selected function in detail.',
         'Cover its purpose, inputs and outputs, implementation logic, dependencies, and edge cases or failure modes.',
         'Cite the function line range. Aim for 250–500 words. Use ## headings and bullets.',
+      ].join('\n');
+    case 'check-pr-errors':
+      return [
+        'Audit this pull request for bugs, errors, and breaking changes before merging or accepting.',
+        '1. Verdict: state clearly whether this PR is Safe to Merge, Needs Changes, or Critical Issues Found.',
+        '2. Potential Bugs & Logic Errors: identify logic flaws, type mismatches, unhandled null/undefined, race conditions, or broken state.',
+        '3. API/Breaking Changes: check if exported interfaces, route signatures, or database schemas break backwards compatibility.',
+        '4. Edge Cases & Missing Error Handling: list unhandled exceptions, network failures, timeouts, or invalid payloads.',
+        '5. Recommended Fixes: provide specific, actionable code recommendations.',
+        'Aim for 400–650 words. Use ## headings, severity labels ([CRITICAL], [WARNING], [NOTE]), and quote suspect lines.',
+      ].join('\n');
+    case 'check-security':
+      return [
+        'Perform a comprehensive security audit on the supplied code and diffs.',
+        '1. Security Posture Summary: overall risk assessment (Low, Medium, High, Critical).',
+        '2. Vulnerability Scan: check for common vulnerabilities including:',
+        '   - Hardcoded secrets, API keys, credentials, or tokens.',
+        '   - Timing attacks (e.g. non-constant-time comparisons for HMAC/crypto hashes).',
+        '   - Injection flaws (SQL, command, XSS, template injection, prototype pollution).',
+        '   - Insecure token/session handling, missing signature checks, weak algorithm fallbacks.',
+        '   - Insecure defaults, permissive CORS, path traversal, or privilege escalation.',
+        '3. Concrete Findings: for each issue, specify the file, approximate line range, vulnerability type, and impact.',
+        '4. Remediation Steps: provide the exact secure coding pattern to replace the vulnerable implementation.',
+        'Aim for 400–700 words. Use ## headings, severity tags, and short > blockquotes for code citations.',
+      ].join('\n');
+    case 'check-file-errors':
+      return [
+        'Inspect this file for bugs, harmful patterns, and edge-case errors.',
+        '1. File Health: overall assessment of code quality and stability.',
+        '2. Potential Bugs: identify logic errors, unhandled exceptions, resource leaks, or missing input validation.',
+        '3. Harmful or Risky Patterns: highlight code that could cause crashes, infinite loops, memory leaks, or unhandled promise rejections.',
+        '4. Concrete Line References: reference specific functions and line numbers for each issue identified.',
+        '5. Corrective Action: suggest concrete improvements.',
+        'Aim for 350–600 words. Use ## headings and bullet points.',
+      ].join('\n');
+    case 'ask-repo':
+      return [
+        'Answer the user\'s repository question with precision using the supplied codebase, PR, and file context.',
+        'Base your answer directly on the code and metadata provided. Cite specific files, functions, and lines where relevant.',
+        'If the code does not provide enough evidence to answer fully, explicitly note what is missing.',
+        'Aim for 200–500 words. Use ## headings, bullet lists, and code citations.',
       ].join('\n');
   }
 }
@@ -431,7 +485,7 @@ function formatFunctionContext(
  */
 export function buildAssistantPrompt(input: AssistantRequest): BuiltAssistantPrompt {
   const system = [
-    'You are Gitvox, a senior software engineer and code reviewer.',
+    'You are Gitvox, a senior software engineer, security researcher, and code reviewer.',
     'Answer ONLY from the supplied context. Never invent files, functions, dependencies, behavior, or risks.',
     'If the supplied context is insufficient, say so explicitly and explain what evidence is missing.',
     'Write a detailed, readable Markdown answer with ## headings, bullet lists, and short > blockquotes for code references.',

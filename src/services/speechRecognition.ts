@@ -2,18 +2,16 @@
  * Browser-native speech recognition wrapper around the Web Speech API
  * (`SpeechRecognition` / `webkitSpeechRecognition`).
  *
- * This module only turns microphone audio into transcripts. It never interprets
- * commands and never generates explanations: Gitvox's command router and model
- * backend stay separate from recognition.
+ * Supports both on-demand single command sessions and continuous wake-word
+ * detection ("Gitvox") that automatically activates the microphone for a command.
  *
- * No SDK, account, API key, or paid service is required. Important limitation:
- * the Web Speech API is not guaranteed to be offline and is not available in
- * every browser, so availability is detected and surfaced honestly.
+ * No third-party SDKs, external models, or server roundtrips needed for speech recognition.
  */
 
 export type SpeechRecognitionStatus =
   | 'idle'
   | 'listening'
+  | 'wake-listening'
   | 'unsupported'
   | 'permission-denied'
   | 'error';
@@ -68,11 +66,8 @@ export interface SpeechRecognitionLike {
 export type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 export const DEFAULT_SPEECH_LANGUAGE = 'en-US';
+export const WAKE_WORD = 'gitvox';
 
-/**
- * Recognition language presets. Hindi/Hinglish can be enabled later by adding a
- * preset and selecting it; the session accepts any BCP-47 tag.
- */
 export const SPEECH_LANGUAGE_PRESETS = [
   { id: 'en-US', label: 'English (US)' },
   { id: 'en-IN', label: 'English (India)' },
@@ -175,9 +170,11 @@ export interface SpeechTranscriptPayload {
 
 export interface SpeechRecognitionSessionOptions {
   language?: string;
+  continuous?: boolean;
   onStatus?: (status: SpeechRecognitionStatus) => void;
   onTranscript?: (payload: SpeechTranscriptPayload) => void;
   onFinalTranscript?: (transcript: string) => void;
+  onWakeWordDetected?: (commandAfterWakeWord?: string) => void;
   onError?: (error: SpeechRecognitionErrorInfo) => void;
   recognitionFactory?: () => SpeechRecognitionLike | null;
   now?: () => number;
@@ -192,9 +189,23 @@ export interface SpeechRecognitionSession {
 }
 
 /**
- * One session handles one spoken command: `continuous` is false, so the
- * microphone stops after a final result. The UI can start a new session
- * whenever the user clicks Start Listening again.
+ * Checks if a transcript contains the wake word "gitvox" (or phonetic variations like "get vox", "git box", "git fox").
+ */
+export function extractWakeWord(transcript: string): { detected: boolean; commandAfter: string } {
+  const normalized = transcript.toLowerCase().trim();
+  const wakeWordPattern = /\b(gitvox|git\s*vox|git\s*box|git\s*fox|get\s*vox)\b/i;
+  const match = normalized.match(wakeWordPattern);
+  if (!match) {
+    return { detected: false, commandAfter: '' };
+  }
+
+  const matchEnd = (match.index ?? 0) + match[0].length;
+  const commandAfter = normalized.slice(matchEnd).replace(/^[,.\s]+/, '').trim();
+  return { detected: true, commandAfter };
+}
+
+/**
+ * Creates a SpeechRecognitionSession that handles voice commands.
  */
 export function createSpeechRecognitionSession(
   options: SpeechRecognitionSessionOptions = {}
@@ -233,11 +244,31 @@ export function createSpeechRecognitionSession(
 
     const interimText = interim.trim();
     if (interimText) {
+      // Check for inline wake word in interim results
+      if (options.onWakeWordDetected) {
+        const wakeCheck = extractWakeWord(interimText);
+        if (wakeCheck.detected) {
+          options.onWakeWordDetected(wakeCheck.commandAfter);
+        }
+      }
       options.onTranscript?.({ transcript: interimText, isFinal: false });
     }
 
     const finalText = final.trim();
     if (!finalText) return;
+
+    // Check for wake word in final result
+    if (options.onWakeWordDetected) {
+      const wakeCheck = extractWakeWord(finalText);
+      if (wakeCheck.detected) {
+        options.onWakeWordDetected(wakeCheck.commandAfter);
+        if (wakeCheck.commandAfter) {
+          options.onTranscript?.({ transcript: wakeCheck.commandAfter, isFinal: true });
+          options.onFinalTranscript?.(wakeCheck.commandAfter);
+          return;
+        }
+      }
+    }
 
     const normalized = finalText.toLowerCase().replace(/\s+/g, ' ');
     const timestamp = now();
@@ -247,7 +278,9 @@ export function createSpeechRecognitionSession(
     lastFinalText = normalized;
     lastFinalAt = timestamp;
 
-    shouldListen = false;
+    if (!options.continuous) {
+      shouldListen = false;
+    }
     options.onTranscript?.({ transcript: finalText, isFinal: true });
     options.onFinalTranscript?.(finalText);
   };
@@ -255,9 +288,9 @@ export function createSpeechRecognitionSession(
   const handleError = (event: SpeechRecognitionErrorEventLike) => {
     if (disposed) return;
     const info = mapSpeechRecognitionError(event.error);
-    // Any terminal recognition error must release the "listening" intent so the
-    // user can start a fresh attempt.
-    shouldListen = false;
+    if (!options.continuous || event.error === 'not-allowed') {
+      shouldListen = false;
+    }
     emitStatus(info.status);
     options.onError?.(info);
   };
@@ -267,7 +300,7 @@ export function createSpeechRecognitionSession(
     if (!instance) return null;
 
     instance.lang = options.language ?? getSpeechLanguage();
-    instance.continuous = false;
+    instance.continuous = Boolean(options.continuous);
     instance.interimResults = true;
     instance.maxAlternatives = 1;
 
@@ -280,6 +313,15 @@ export function createSpeechRecognitionSession(
     instance.onerror = handleError;
     instance.onend = () => {
       listening = false;
+      if (!disposed && shouldListen && options.continuous) {
+        // Auto-restart for continuous listening mode
+        try {
+          instance.start();
+          return;
+        } catch {
+          // Fall through to idle
+        }
+      }
       if (!disposed && !shouldListen) {
         emitStatus('idle');
       }
@@ -319,8 +361,6 @@ export function createSpeechRecognitionSession(
         recognition.start();
         emitStatus('listening');
       } catch (error) {
-        // Calling start() while already started throws InvalidStateError; treat
-        // it as a no-op rather than a user-facing failure.
         if (error instanceof Error && /already started/i.test(error.message)) {
           return;
         }
@@ -342,7 +382,7 @@ export function createSpeechRecognitionSession(
         try {
           recognition.stop();
         } catch {
-          // Stopping an inactive recognizer must not throw to the UI.
+          // Stopping an inactive recognizer
         }
       }
       listening = false;
@@ -364,7 +404,7 @@ export function createSpeechRecognitionSession(
         try {
           instance.abort();
         } catch {
-          // Aborting during teardown must not throw to the UI.
+          // Aborting during teardown
         }
       }
     },

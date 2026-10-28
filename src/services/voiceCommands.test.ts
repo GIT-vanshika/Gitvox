@@ -76,6 +76,62 @@ test('line-range variations extract digits and spoken numbers', () => {
   }
 });
 
+test('security analysis variations map to check-security', () => {
+  for (const phrase of [
+    'Run a security analysis',
+    'Check this PR for security vulnerabilities',
+    'Are there any security threats?',
+    'Check security in this file',
+    'Scan for malicious code',
+    'Check for hardcoded secrets',
+    'Audit for vulnerabilities',
+  ]) {
+    const match = interpretVoiceTranscript(phrase);
+    assert.equal(match.kind, 'check-security', phrase);
+    assert.equal(voiceCommandToText(match), 'Run a security analysis.');
+  }
+});
+
+test('PR error checking variations map to check-pr-errors', () => {
+  for (const phrase of [
+    'Check this PR for errors',
+    'Are there any errors before pulling?',
+    'Will this PR break anything?',
+    'Check for bugs in this pull request',
+    'Find defects in this PR',
+  ]) {
+    const match = interpretVoiceTranscript(phrase);
+    assert.equal(match.kind, 'check-pr-errors', phrase);
+    assert.equal(voiceCommandToText(match), 'Check this PR for errors.');
+  }
+});
+
+test('file error checking variations map to check-file-errors', () => {
+  for (const phrase of [
+    'Check this file for errors',
+    'Are there bugs in this file?',
+    'Find errors in this file',
+    'Check for issues in the selected file',
+  ]) {
+    const match = interpretVoiceTranscript(phrase);
+    assert.equal(match.kind, 'check-file-errors', phrase);
+    assert.equal(voiceCommandToText(match), 'Check this file for errors.');
+  }
+});
+
+test('freeform repo questions route to ask-repo', () => {
+  for (const phrase of [
+    'How does the auth token get generated?',
+    'What dependencies does this project use?',
+    'Why is crypto used instead of jsonwebtoken?',
+    'Where is the authentication router configured?',
+  ]) {
+    const match = interpretVoiceTranscript(phrase);
+    assert.equal(match.kind, 'ask-repo', phrase);
+    assert.equal(voiceCommandToText(match), phrase);
+  }
+});
+
 test('ambiguous and incomplete requests ask for clarification without executing', () => {
   const ambiguous = interpretVoiceTranscript('Explain this');
   assert.equal(ambiguous.kind, 'clarify');
@@ -93,19 +149,13 @@ test('ambiguous and incomplete requests ask for clarification without executing'
     assert.equal(oneNumber.reason, 'missing-end');
   }
 
-  const targetless = interpretVoiceTranscript('What does this do?');
-  assert.equal(targetless.kind, 'clarify');
-
-  const barePr = interpretVoiceTranscript('The PR');
-  assert.equal(barePr.kind, 'clarify');
-});
-
-test('unrelated requests are unsupported and never map to an action', () => {
-  const joke = interpretVoiceTranscript('Tell me a joke');
-  assert.equal(joke.kind, 'unsupported');
-  assert.equal(voiceCommandToText(joke), null);
-
   const empty = interpretVoiceTranscript('   ');
   assert.equal(empty.kind, 'clarify');
   assert.equal(voiceCommandToText(empty), null);
+});
+
+test('unrelated non-question requests are unsupported', () => {
+  const joke = interpretVoiceTranscript('Tell me a joke');
+  assert.equal(joke.kind, 'unsupported');
+  assert.equal(voiceCommandToText(joke), null);
 });

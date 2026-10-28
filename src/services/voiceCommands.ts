@@ -15,6 +15,10 @@ export type VoiceCommandMatch =
   | { kind: 'explain-file'; transcript: string; normalized: string }
   | { kind: 'explain-function'; transcript: string; normalized: string }
   | { kind: 'explain-range'; startLine: number; endLine: number; transcript: string; normalized: string }
+  | { kind: 'check-pr-errors'; transcript: string; normalized: string }
+  | { kind: 'check-security'; transcript: string; normalized: string }
+  | { kind: 'check-file-errors'; transcript: string; normalized: string }
+  | { kind: 'ask-repo'; transcript: string; normalized: string }
   | { kind: 'clarify'; reason: string; message: string; transcript: string; normalized: string }
   | { kind: 'unsupported'; message: string; transcript: string; normalized: string };
 
@@ -54,22 +58,33 @@ export const VOICE_COMMAND_EXAMPLES = [
   'Summarize the current PR',
   'Explain the selected file',
   'Explain lines 20 to 35',
+  'Check this PR for errors',
+  'Run a security check',
+  'Check this file for errors',
 ];
 
 export const CLARIFY_MESSAGE =
-  'I can explain the current pull request, summarize it, explain the selected file, or explain a line range. For example, "Explain the current PR" or "Explain lines 20 to 35".';
+  'I can explain the current pull request, summarize it, explain the selected file, explain a line range, check for errors, or run a security analysis. For example, "Explain the current PR" or "Check this PR for errors".';
 
 export const UNSUPPORTED_MESSAGE =
-  'I did not catch a Gitvox command in that. Try "Explain the current PR", "Summarize the current PR", "Explain the selected file", or "Explain lines 20 to 35".';
+  'I did not catch a Gitvox command in that. Try "Explain the current PR", "Summarize the current PR", "Explain the selected file", "Explain lines 20 to 35", "Check this PR for errors", or "Run a security check".';
 
 const LINE_WORD_PATTERN = /\b(line|lines)\b/;
 const FUNCTION_PATTERN = /\b(function|method)\b/;
 const FILE_PATTERN = /\b(file|files)\b/;
-const PR_PATTERN = /\b(pr|pull request|pull requests)\b/;
+const PR_PATTERN = /\b(pr|pull request|pull requests|pulling|pull)\b/;
 const SUMMARIZE_PATTERN =
   /\b(summarize|summarise|summary|what changed|what changes|what has changed|what have changed|changes have been made|what is different|difference|diff)\b/;
 const EXPLAIN_VERB_PATTERN =
-  /\b(explain|describe|walk|go through|going through|tell me about|what does|what is|how does|break down)\b/;
+  /\b(explain|describe|walk|go through|going through|tell me about)\b/;
+
+/* ── New command detection patterns ── */
+const ERROR_PATTERN =
+  /\b(error|errors|bug|bugs|issue|issues|problem|problems|mistake|mistakes|break|broken|wrong|fault|faults|defect|defects)\b/;
+const SECURITY_PATTERN =
+  /\b(security|secure|vulnerability|vulnerabilities|vulnerable|threat|threats|harmful|malicious|injection|xss|csrf|exploit|exploits|attack|attacks|unsafe|insecure|hack|hacked|compromised|secret|secrets|hardcoded|credential|credentials|leak|leaks|dangerous)\b/;
+const CHECK_VERB_PATTERN =
+  /\b(check|scan|analyze|analyse|review|audit|inspect|find|detect|identify|look for|search for|test for|verify|validate|assess|evaluate)\b/;
 
 /** Converts spoken number words ("twenty five", "twenty-five") into digits. */
 export function convertNumberWords(input: string): string {
@@ -114,7 +129,7 @@ export function convertNumberWords(input: string): string {
 export function normalizeTranscript(transcript: string): string {
   const prepared = transcript
     .toLowerCase()
-    .replace(/[’']/g, '')
+    .replace(/['']/g, '')
     .replace(/\bwhats\b/g, 'what is')
     .replace(/-/g, ' ')
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -173,6 +188,7 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     };
   }
 
+  // ── Line-range requests (highest specificity) ──
   if (LINE_WORD_PATTERN.test(normalized)) {
     const range = extractLineRange(normalized);
     if (range.ok) {
@@ -196,10 +212,32 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     };
   }
 
-  if (FUNCTION_PATTERN.test(normalized) && EXPLAIN_VERB_PATTERN.test(normalized)) {
+  // ── Security analysis requests ──
+  if (SECURITY_PATTERN.test(normalized)) {
+    return { kind: 'check-security', transcript, normalized };
+  }
+
+  // ── Error/bug detection in PR (or before pulling/accepting) ──
+  if (ERROR_PATTERN.test(normalized) && (PR_PATTERN.test(normalized) || /\b(before|pulling|accepting|merge|merging)\b/.test(normalized))) {
+    return { kind: 'check-pr-errors', transcript, normalized };
+  }
+
+  // ── Error/bug detection in file ──
+  if (ERROR_PATTERN.test(normalized) && FILE_PATTERN.test(normalized)) {
+    return { kind: 'check-file-errors', transcript, normalized };
+  }
+
+  // ── General error checking (defaults to PR scope) ──
+  if (ERROR_PATTERN.test(normalized) && CHECK_VERB_PATTERN.test(normalized)) {
+    return { kind: 'check-pr-errors', transcript, normalized };
+  }
+
+  // ── Function explanation ──
+  if (FUNCTION_PATTERN.test(normalized) && (EXPLAIN_VERB_PATTERN.test(normalized) || /\b(what does|what is|how does)\b/.test(normalized))) {
     return { kind: 'explain-function', transcript, normalized };
   }
 
+  // ── File explanation ──
   if (
     FILE_PATTERN.test(normalized) &&
     (EXPLAIN_VERB_PATTERN.test(normalized) || /\b(selected|current|this|the)\b/.test(normalized))
@@ -207,6 +245,7 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     return { kind: 'explain-file', transcript, normalized };
   }
 
+  // ── PR-specific commands ──
   if (PR_PATTERN.test(normalized)) {
     if (SUMMARIZE_PATTERN.test(normalized)) {
       return { kind: 'summarize-pr', transcript, normalized };
@@ -223,10 +262,12 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     };
   }
 
+  // ── Bare summarize (no PR mentioned, assume PR) ──
   if (SUMMARIZE_PATTERN.test(normalized)) {
     return { kind: 'summarize-pr', transcript, normalized };
   }
 
+  // ── Bare explain verb without target ──
   if (EXPLAIN_VERB_PATTERN.test(normalized)) {
     return {
       kind: 'clarify',
@@ -235,6 +276,12 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
       transcript,
       normalized,
     };
+  }
+
+  // ── Freeform repo question: route to AI as ask-repo ──
+  const isQuestion = /\b(what|how|why|where|when|who|which|is|are|does|do|can|could|should|would|will|has|have|did)\b/.test(normalized);
+  if (isQuestion && normalized.split(' ').length >= 3) {
+    return { kind: 'ask-repo', transcript, normalized };
   }
 
   return {
@@ -258,6 +305,14 @@ export function voiceCommandToText(match: VoiceCommandMatch): string | null {
       return 'Explain the selected function.';
     case 'explain-range':
       return `Explain code from line ${match.startLine} to line ${match.endLine}.`;
+    case 'check-pr-errors':
+      return 'Check this PR for errors.';
+    case 'check-security':
+      return 'Run a security analysis.';
+    case 'check-file-errors':
+      return 'Check this file for errors.';
+    case 'ask-repo':
+      return match.transcript;
     default:
       return null;
   }

@@ -2,31 +2,45 @@
 
 **Your code. Your voice. Your clarity.**
 
-Gitvox is a voice-first AI platform for understanding codebases and reviewing pull requests. It allows developers to explore repositories, inspect line-by-line diffs, and review changes through natural spoken commands and grounded, evidence-based AI explanations.
+🌐 **Live Demo:** [https://gitvox-dun.vercel.app/](https://gitvox-dun.vercel.app/)
+
+Gitvox is a voice-first AI platform for understanding codebases and reviewing pull requests. It allows developers to explore repositories, inspect line-by-line diffs, identify potential bugs and security threats, and review changes through natural spoken commands and grounded, evidence-based AI explanations.
 
 ---
 
 ## ✨ Core Capabilities
 
-1. **Voice-First AI Assistant**:
-   - Anchored by a floating microphone at the bottom-left of the viewport.
-   - Driven by the browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) with zero third-party voice SDK dependencies.
+1. **Wake-Word & Voice-First AI Assistant**:
+   - Speak **"Gitvox"** to open the microphone hands-free, then speak your command directly.
+   - Anchored by a floating microphone at the bottom-left of the viewport with animated radar/listening states.
+   - Driven entirely by the browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) with zero third-party voice SDK dependencies.
    - Conversational, route-aware context routing that passes actual diff hunks, file contents, or line ranges to the AI model.
    - Built-in text fallback drawer available at any time.
 
+2. **Pre-Merge Error & Bug Audit**:
+   - Detects logic bugs, type mismatches, unhandled null/undefined references, and race conditions before accepting or pulling a PR.
+   - Analyzes breaking changes in API routes, exported interfaces, and contracts.
 
-2. **Cohesive Code-Review Workspace**:
+3. **Security Analysis & Vulnerability Scanning**:
+   - Performs automated security checks across repository files and PR diffs.
+   - Checks for hardcoded secrets, timing attacks in HMAC/hash verification, injection flaws (SQL, XSS), permissive CORS, and insecure fallback defaults.
+
+4. **Universal Repository Q&A**:
+   - Ask any question about any file, line of code, architectural pattern, or PR.
+   - Grounded directly in loaded ASTs, LCS diffs, and real file contents without hallucinations.
+
+5. **Cohesive Code-Review Workspace**:
    - Three-panel layout (changed files explorer, central diff viewer, and review findings) aligned with consistent heights and independent scroll areas.
    - Code diff remains the primary focus without awkward responsive wrapping on standard desktop screens (1024px–1440px).
    - Long code lines scroll internally within the diff viewer rather than expanding the page or causing horizontal document blowout.
 
-3. **Pull-Request Review (Sample PR #284)**:
+6. **Pull-Request Review (Sample PR #284)**:
    - Pre-loaded with PR `#284` (*Add token-based authentication middleware* in `acme-platform/api-server`, `+86` additions, `-24` deletions across 5 files).
    - Genuine Longest Common Subsequence (LCS) line-by-line diffs supporting both **Unified** and **Split** views.
    - Severity-labeled review findings with uncertainty disclosures and one-click line jumping.
    - Per-file review tracking with visual toggle indicators.
 
-4. **Local-First Project Explorer**:
+7. **Local-First Project Explorer**:
    - Upload individual source files (up to 2 MB) or ZIP archives (up to 10 MB text) parsed in-memory.
    - Automatic function extraction, path traversal protection, and exclusion of `node_modules/`, `dist/`, and `.git/`.
    - Zero execution of uploaded code.
@@ -36,6 +50,8 @@ Gitvox is a voice-first AI platform for understanding codebases and reviewing pu
 ## 🎙️ Supported Voice Commands
 
 Gitvox includes an intelligent, rule-backed voice command pipeline that normalizes transcripts, expands contractions, parses spoken numbers into digits, and maps natural phrases to deterministic actions.
+
+> **Wake Word:** Say **"Gitvox"** at any time while viewing the application to activate the microphone hands-free!
 
 ### 1. Explain the Pull Request
 *Gives a comprehensive walkthrough of the active PR's purpose, modified files, architectural impact, and risks.*
@@ -51,40 +67,61 @@ Gitvox includes an intelligent, rule-backed voice command pipeline that normaliz
 - `"What changes have been made here?"`
 - `"Give me a summary of the current pull request"`
 
-### 3. Explain the Selected File
+### 3. Pre-Merge Error Detection & Bug Audit
+*Audits pull requests for potential bugs, breaking changes, and errors before merging or pulling.*
+- `"Check this PR for errors"`
+- `"Are there any errors before pulling?"`
+- `"Will this PR break anything?"`
+- `"Check for bugs in this pull request"`
+- `"Find defects in this PR"`
+
+### 4. Security Audit & Vulnerability Checks
+*Scans repository files and diffs for harmful code, security risks, timing attacks, or credential leaks.*
+- `"Run a security analysis"`
+- `"Check this PR for security vulnerabilities"`
+- `"Are there any security threats?"`
+- `"Check security in this file"`
+- `"Scan for malicious code"`
+- `"Check for hardcoded secrets"`
+
+### 5. File Bug & Error Inspection
+*Deep-dives into a specific file to identify edge-case errors, null checks, and logic flaws.*
+- `"Check this file for errors"`
+- `"Are there bugs in this file?"`
+- `"Find errors in this file"`
+- `"Check for issues in the selected file"`
+
+### 6. Explain the Selected File
 *Analyzes the currently active file, its responsibilities, dependencies, and internal logic.*
 - `"Explain this file"`
 - `"Explain the selected file"`
 - `"Walk me through this file"`
 - `"Summarize this file"`
 
-### 4. Explain a Line Range
+### 7. Explain a Line Range
 *Explains a specific range of code lines step-by-step. Supports digits as well as spoken English number words.*
 - `"Explain lines 5 to 27"`
 - `"Explain code from line 20 to line 35"`
 - `"Go through lines twelve to thirty"`
 - `"Explain lines one to fifteen"`
 
-### 5. Explain the Selected Function
+### 8. Explain the Selected Function
 *Deep-dives into a specific function's logic, parameters, return types, and edge cases.*
 - `"Explain the selected function"`
 - `"What does this function do?"`
 - `"Explain this function"`
 
-### 6. Navigation and File Selection
+### 9. Navigation and File Selection
 *Switches the active workspace viewer to a specific file or component.*
 - `"Show the authentication middleware"`
 - `"Open tokenService.js"`
 - `"Go to auth.js"`
 
-### 7. Bug & Quality Analysis
-*Scans the modified diff lines against common security and reliability pitfalls.*
-- `"Check these changes for potential bugs"`
-- `"Check for bugs"`
-
-### 8. Direct Contextual Questions (Text or Voice)
-*Ask arbitrary natural-language questions grounded in the loaded code.*
-- `"How is the token signature verified?"`
+### 10. Universal Repository Q&A
+*Ask any natural-language question grounded in the loaded codebase or PR.*
+- `"How does the auth token get generated?"`
+- `"What dependencies does this project use?"`
+- `"Why is crypto used instead of jsonwebtoken?"`
 - `"Where is the signing secret stored?"`
 
 ### 💡 Ambiguity Handling & Clarifications
@@ -145,7 +182,7 @@ Open [https://gitvox-dun.vercel.app/](https://gitvox-dun.vercel.app/) in your br
 Gitvox maintains a strict, verified test suite covering diff algorithms, command routing, speech parsing, and model request builders:
 
 ```bash
-# Run unit & integration tests (39 passing tests)
+# Run unit & integration tests (48 passing tests)
 npm test
 
 # Run TypeScript typechecks

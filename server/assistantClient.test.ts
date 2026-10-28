@@ -62,6 +62,13 @@ const rangeRequest: AssistantRequest = {
   project: explainPrRequest.project,
 };
 
+const securityRequest: AssistantRequest = {
+  action: 'check-security',
+  transcript: 'Run a security analysis',
+  pullRequest: explainPrRequest.pullRequest,
+  project: explainPrRequest.project,
+};
+
 const config: ModelConfig = {
   apiKey: 'test-key',
   baseUrl: 'http://127.0.0.1:9999/v1',
@@ -85,6 +92,10 @@ test('validateAssistantRequest enforces action-specific context', () => {
     /file context is required/i
   );
   assert.throws(
+    () => validateAssistantRequest({ action: 'check-file-errors', transcript: 'x' }),
+    /file context is required/i
+  );
+  assert.throws(
     () => validateAssistantRequest({ action: 'not-a-real-action', transcript: 'x' }),
     /unsupported assistant action/i
   );
@@ -103,6 +114,15 @@ test('PR prompt includes real base/proposed code and every changed file', () => 
   assert.ok(user.content.includes('verifyAccessToken'));
   assert.match(system.content, /450–700 words/);
   assert.match(system.content, /Never invent/);
+});
+
+test('security check prompt contains security-focused instructions', () => {
+  const { messages } = buildAssistantPrompt(validateAssistantRequest(securityRequest));
+  const system = messages.find((message) => message.role === 'system');
+  assert.ok(system);
+  assert.match(system.content, /security audit/i);
+  assert.match(system.content, /timing attack/i);
+  assert.match(system.content, /vulnerability/i);
 });
 
 test('range prompt includes numbered selected lines and function context', () => {
