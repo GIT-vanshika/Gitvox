@@ -1,8 +1,8 @@
-import express from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
-  ModelError,
   getModelConfig,
   getPublicModelStatus,
+  ModelError,
   requestModelExplanation,
   validateExplainRequest,
 } from '../server/modelClient';
@@ -10,30 +10,52 @@ import {
   requestAssistantExplanation,
   validateAssistantRequest,
 } from '../server/assistantClient';
+import { parseJsonBody, sendJson } from './_utils';
 
-const app = express();
-app.disable('x-powered-by');
-app.use(express.json({ limit: '1mb' }));
+export default async function handler(
+  req: IncomingMessage & { body?: unknown; query?: Record<string, string> },
+  res: ServerResponse
+) {
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.end();
+    return;
+  }
 
-app.use((_req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  next();
-});
+  const url = req.url || '';
 
-app.get('/api/model/status', (_req, res) => {
-  res.json(getPublicModelStatus());
-});
-
-app.post('/api/explain', async (req, res) => {
   try {
-    const input = validateExplainRequest(req.body);
-    const config = getModelConfig();
-    const explanation = await requestModelExplanation(input, config);
-    res.json({ explanation });
+    if (url.includes('/status')) {
+      sendJson(res, 200, getPublicModelStatus());
+      return;
+    }
+
+    if (req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const config = getModelConfig();
+
+      if (url.includes('/assistant')) {
+        const input = validateAssistantRequest(body);
+        const explanation = await requestAssistantExplanation(input, config);
+        sendJson(res, 200, { explanation });
+        return;
+      }
+
+      // Default hunk explain
+      const input = validateExplainRequest(body);
+      const explanation = await requestModelExplanation(input, config);
+      sendJson(res, 200, { explanation });
+      return;
+    }
+
+    // Default status if GET
+    sendJson(res, 200, getPublicModelStatus());
   } catch (error) {
     if (error instanceof ModelError) {
-      res.status(error.httpStatus).json({
+      sendJson(res, error.httpStatus, {
         error: {
           code: error.code,
           message: error.message,
@@ -42,41 +64,14 @@ app.post('/api/explain', async (req, res) => {
       });
       return;
     }
-    res.status(500).json({
+
+    console.error('[api/index] Error:', error);
+    sendJson(res, 500, {
       error: {
         code: 'internal_error',
-        message: 'Gitvox could not process the explanation request.',
+        message: error instanceof Error ? error.message : 'Gitvox serverless error',
         retryable: true,
       },
     });
   }
-});
-
-app.post('/api/assistant/explain', async (req, res) => {
-  try {
-    const input = validateAssistantRequest(req.body);
-    const config = getModelConfig();
-    const explanation = await requestAssistantExplanation(input, config);
-    res.json({ explanation });
-  } catch (error) {
-    if (error instanceof ModelError) {
-      res.status(error.httpStatus).json({
-        error: {
-          code: error.code,
-          message: error.message,
-          retryable: error.retryable,
-        },
-      });
-      return;
-    }
-    res.status(500).json({
-      error: {
-        code: 'internal_error',
-        message: 'Gitvox could not process the assistant request.',
-        retryable: true,
-      },
-    });
-  }
-});
-
-export default app;
+}
