@@ -30,6 +30,11 @@ await Promise.all([
   }),
   build({
     ...commonOptions,
+    entryPoints: ['server/api/fix.ts'],
+    outfile: 'api/fix.js',
+  }),
+  build({
+    ...commonOptions,
     entryPoints: ['server/api/explain.ts'],
     outfile: 'api/explain.js',
   }),
