@@ -161,6 +161,25 @@ app.post('/api/assistant/explain', async (req, res) => {
   }
 });
 
+app.post('/api/assistant/fix', async (req, res) => {
+  try {
+    const { applyVoiceFix } = await import('./api/fix');
+    const filePath = typeof req.body?.filePath === 'string' ? req.body.filePath : 'src/middleware/auth.js';
+    const code = typeof req.body?.code === 'string' ? req.body.code : '';
+    const result = applyVoiceFix(filePath, code);
+    res.json(result);
+  } catch (error) {
+    console.error('[assistant/fix] error', error);
+    res.status(500).json({
+      error: {
+        code: 'internal_error',
+        message: 'Could not apply voice fix',
+        retryable: true,
+      },
+    });
+  }
+});
+
 app.use('/api', (_req, res) => {
   res.status(404).json({
     error: {
