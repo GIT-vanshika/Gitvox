@@ -216,14 +216,60 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
         </div>
       </header>
 
-      <main className="shell flex-1 pb-28 pt-10">
-        <div className="max-w-3xl">
-          <p className="eyebrow">Workspace initialization</p>
-          <h1 className="h2 mt-2">Choose how to load source code into Gitvox</h1>
-          <p className="mt-3 text-sm leading-6 text-body">
-            All uploaded files and archives are parsed statically in browser memory. Gitvox never
-            executes uploaded code, never runs scripts, and never installs project dependencies.
-          </p>
+      <main className="shell flex-1 pb-28 pt-8 relative overflow-hidden">
+        {/* Ambient Acoustic Field: Amber & Violet Luminescence */}
+        <div className="absolute -top-32 left-1/4 w-[620px] h-[340px] bg-gradient-to-br from-secondary/15 via-accent/10 to-transparent blur-[140px] pointer-events-none rounded-full" />
+        <div className="absolute top-1/3 -right-24 w-[540px] h-[400px] bg-gradient-to-bl from-accent/10 via-secondary/10 to-transparent blur-[160px] pointer-events-none rounded-full" />
+
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 pb-2 relative z-10">
+          <div className="flex flex-col gap-2 max-w-3xl">
+            <div className="flex items-center gap-2 self-start px-3 py-1 rounded-full bg-[#1a1f30] border border-accent/20">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_#f59e0b]" />
+              <span className="font-mono text-[11px] text-accent tracking-widest font-semibold uppercase">
+                WORKSPACE INITIALIZATION
+              </span>
+              <span className="text-faint font-mono text-[10px]">///</span>
+              <span className="font-mono text-[11px] text-body">SANDBOX V2.4</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-ink tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
+              Choose how to load source code into Gitvox
+            </h1>
+            <p className="text-sm text-body leading-relaxed">
+              All uploaded files and archives are parsed statically in browser memory. Gitvox never executes uploaded code, never runs scripts, and never installs project dependencies.
+            </p>
+          </div>
+
+          {/* Security / Memory Protocol Stats Card */}
+          <div className="flex items-center gap-4 p-4 rounded-xl bg-[#0d101a] border border-[#242a40] shadow-sm">
+            <div className="flex flex-col">
+              <span className="font-mono text-[10px] text-faint uppercase tracking-wider">EXECUTION MODE</span>
+              <span className="font-mono text-[12px] font-semibold text-accent">WASM_LOCAL_ONLY</span>
+            </div>
+            <div className="h-8 w-px bg-[#242a40]" />
+            <div className="flex flex-col">
+              <span className="font-mono text-[10px] text-faint uppercase tracking-wider">NETWORK OUTBOUND</span>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-secondary" />
+                <span className="font-mono text-[12px] font-semibold text-secondary">AIRGAPPED (0 KB)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Acoustic Waveform Stream Divider */}
+        <div className="w-full h-8 flex items-center justify-between gap-1 overflow-hidden my-4 opacity-75 relative z-10">
+          <div className="h-[2px] flex-1 bg-[#1a1f30]" />
+          <div className="flex items-center gap-1 px-3">
+            <span className="w-1 h-3 rounded-full bg-secondary/40" />
+            <span className="w-1 h-5 rounded-full bg-secondary/70" />
+            <span className="w-1 h-2 rounded-full bg-secondary/30" />
+            <span className="w-1 h-7 rounded-full bg-secondary" />
+            <span className="w-1 h-4 rounded-full bg-accent/80" />
+            <span className="w-1 h-2 rounded-full bg-accent/40" />
+            <span className="w-1 h-6 rounded-full bg-accent" />
+            <span className="w-1 h-3 rounded-full bg-accent/40" />
+          </div>
+          <div className="h-[2px] flex-1 bg-[#1a1f30]" />
         </div>
 
         {errorBanner && (

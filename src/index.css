@@ -1,57 +1,68 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Gitvox graphite-gray and neon-green design system
-   - Background: #111416
-   - Main panels: #191E20
-   - Secondary surfaces: #22292B
-   - Borders: #343D3F
-   - Primary text: #E8EFEC
-   - Muted text: #9AA8A2
-   - Neon green: #B7FF3C
-   - Active green: #A6F432
+   Gitvox - Voice GitOps 3D Redesign (Amber & Violet theme from Stitch)
+   - Surface lowest: #06070b
+   - Surface low: #0d101a
+   - Surface base: #131724
+   - Surface high: #1a1f30
+   - Surface highest: #242a40
+   - Primary: #f59e0b (Amber)
+   - Secondary: #8b5cf6 (Electric Violet)
+   - Accent pink: #ec4899
+   - Border: #242a40
 --------------------------------------------------------------------------- */
 :root {
   /* Surfaces */
-  --bg: #111416;
-  --bg-subtle: #191E20;
-  --bg-muted: #22292B;
-  --bg-inset: #15191B;
+  --bg: #090a10;
+  --bg-subtle: #0d101a;
+  --bg-muted: #131724;
+  --bg-inset: #06070b;
+  --surface-low: #0d101a;
+  --surface-container: #131724;
+  --surface-high: #1a1f30;
+  --surface-highest: #242a40;
 
   /* Lines */
-  --border: #343D3F;
-  --border-strong: #455053;
-  --border-emphasis: #5B6A6E;
+  --border: #242a40;
+  --border-strong: #2b3248;
+  --border-emphasis: #374151;
 
   /* Type */
-  --text: #E8EFEC;
-  --text-secondary: #9AA8A2;
-  --text-muted: #6E7C76;
+  --text: #f1f3f9;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
 
-  /* Accent (Neon Green selective) */
-  --accent: #B7FF3C;
-  --accent-hover: #A6F432;
-  --accent-soft: rgba(183, 255, 60, 0.12);
-  --accent-border: rgba(183, 255, 60, 0.32);
-  --accent-solid-text: #111416;
+  /* Accent (Amber & Violet from Stitch) */
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-soft: rgba(245, 158, 11, 0.15);
+  --accent-border: rgba(245, 158, 11, 0.35);
+  --accent-solid-text: #1f1300;
 
-  /* Semantic — reserved for diff, severity and status only */
-  --success: #B7FF3C;
-  --success-bg: rgba(183, 255, 60, 0.12);
-  --success-border: rgba(183, 255, 60, 0.32);
-  --danger: #FF6B6B;
-  --danger-bg: rgba(255, 107, 107, 0.14);
-  --danger-border: rgba(255, 107, 107, 0.35);
-  --warning: #F5B041;
-  --warning-bg: rgba(245, 176, 65, 0.14);
-  --warning-border: rgba(245, 176, 65, 0.35);
+  --secondary: #8b5cf6;
+  --secondary-soft: rgba(139, 92, 246, 0.15);
+  --secondary-border: rgba(139, 92, 246, 0.35);
+
+  --accent-pink: #ec4899;
+
+  /* Semantic */
+  --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.35);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.14);
+  --warning-border: rgba(245, 158, 11, 0.35);
 
   /* Diff */
-  --diff-add-bg: rgba(183, 255, 60, 0.10);
-  --diff-add-line: #B7FF3C;
-  --diff-del-bg: rgba(255, 107, 107, 0.12);
-  --diff-del-line: #FF7B72;
-  --diff-focus-bg: rgba(183, 255, 60, 0.20);
+  --diff-add-bg: rgba(16, 185, 129, 0.12);
+  --diff-add-line: #10b981;
+  --diff-del-bg: rgba(248, 113, 113, 0.14);
+  --diff-del-line: #f87171;
+  --diff-focus-bg: rgba(245, 158, 11, 0.20);
 
   /* Syntax (distinct and readable against dark graphite) */
   --syn-comment: #768390;

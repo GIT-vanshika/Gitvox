@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { GitvoxWordmark } from '../components/common/GitvoxBrand';
 import { Reveal } from '../components/common/Reveal';
+import { AcousticSphere3D } from '../components/AcousticSphere3D';
 import { SAMPLE_PULL_REQUEST } from '../data/samplePullRequest';
 import { SAMPLE_FINDINGS } from '../data/sampleFindings';
 import { computeFileDiff } from '../services/diffService';
@@ -116,26 +117,28 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 href="#product"
                 className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
               >
-                Product
+                Overview
               </a>
-              <a
-                href="#workflow"
-                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
+              <button
+                type="button"
+                onClick={() => onNavigate('project')}
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent cursor-pointer"
               >
-                Workflow
-              </a>
-              <a
-                href="#sample-project"
-                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent"
+                Live Workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('explore')}
+                className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent cursor-pointer"
               >
-                Sample project
-              </a>
+                Upload Source
+              </button>
               <button
                 type="button"
                 onClick={() => onNavigate('pr')}
                 className="rounded px-2.5 py-1.5 transition-colors hover:bg-muted hover:text-accent cursor-pointer"
               >
-                Sample PR
+                PR #284 Review
               </button>
             </nav>
           </div>
@@ -146,118 +149,208 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               onClick={() => onNavigate('explore')}
               className="btn btn-ghost btn-sm hidden sm:inline-flex"
             >
-              Upload code
+              Upload Code
             </button>
-            <button type="button" onClick={() => onNavigate('pr')} className="btn btn-secondary btn-sm">
-              <span className="hidden sm:inline">Open PR #284</span>
-              <span className="sm:hidden">PR #284</span>
+            <button
+              type="button"
+              onClick={() => onNavigate('project')}
+              className="btn btn-secondary btn-sm"
+            >
+              <FolderOpen className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+              <span>Sample Project</span>
             </button>
           </div>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* Hero: text column and code preview are separate grid regions. */}
-        <section className="border-b border-line">
-          <div className="shell grid grid-cols-1 gap-10 py-12 lg:grid-cols-2 lg:items-start lg:gap-12 lg:py-16">
-            <div className="min-w-0">
-              <p className="eyebrow">Voice-first code intelligence</p>
-              <h1 className="display mt-3 max-w-[19ch]">
-                Understand code. Review smarter. Speak naturally.
-              </h1>
-              <p className="mt-5 max-w-[54ch] text-[15px] leading-7 text-body">
-                Gitvox is a voice-first AI assistant for understanding codebases and reviewing pull
-                requests. Ask a question and get an explanation grounded in the actual code and
-                diff.
-              </p>
+        {/* Top Telemetry Ribbon */}
+        <div className="w-full bg-[#06070b] border-b border-[#1a1f30]/60 px-4 sm:px-8 py-2 flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_#f59e0b]" />
+              <span className="text-accent font-medium">Local Voice Matrix Active</span>
+            </div>
+            <span className="hidden md:inline text-faint">• Sub-20ms Audio Pipeline</span>
+            <span className="hidden lg:inline text-secondary">• Client-Side Sandboxing</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-[#131724] text-body border border-[#242a40]">
+              In-Browser Isolation
+            </span>
+            <span className="px-2 py-0.5 rounded bg-accent/10 text-accent font-semibold border border-accent/20">
+              100% Privacy Preserved
+            </span>
+          </div>
+        </div>
 
-              <div className="mt-7 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => onNavigate('project')}
-                  className="btn btn-primary"
-                >
-                  Explore the sample project
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => onNavigate('pr')} className="btn btn-secondary">
-                  Review PR #284
-                </button>
+        {/* Hero Section */}
+        <section className="relative w-full px-4 sm:px-8 py-10 lg:py-16 overflow-hidden border-b border-line">
+          <div className="absolute -top-32 -left-32 w-96 h-96 bg-accent/10 rounded-full blur-[140px] pointer-events-none" />
+          <div className="absolute top-1/4 -right-32 w-[32rem] h-[32rem] bg-secondary/15 rounded-full blur-[160px] pointer-events-none" />
+
+          <div className="max-w-7xl mx-auto flex flex-col gap-8 relative z-10">
+            {/* Status Tag */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a1f30] border border-accent/20">
+                <Mic className="h-3.5 w-3.5 text-accent" />
+                <span className="font-mono text-[11px] uppercase text-accent tracking-wider font-semibold">
+                  Conversational Dev Environment
+                </span>
               </div>
-
-              <p className="mt-5 inline-flex items-center gap-2 text-[13px] text-body">
-                <Mic className="h-4 w-4 text-accent" aria-hidden="true" />
-                Or use the floating microphone in the bottom-left corner to ask by voice.
-              </p>
-
-              <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-4 text-xs">
-                <span className="font-medium text-ink">Built-in sample ready</span>
-                <span className="text-faint" aria-hidden="true">
-                  ·
-                </span>
-                <span className="font-mono text-body">acme-platform/api-server</span>
-                <span className="text-faint" aria-hidden="true">
-                  ·
-                </span>
-                <span className="font-mono text-body">PR #284 · 5 files · +86 / −24</span>
+              <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-faint">
+                <span>Streaming latency</span>
+                <span className="text-accent font-semibold">~14ms</span>
               </div>
             </div>
 
-            <div className="min-w-0">
-              <div className="code-panel card-elevated">
-                <div className="panel-head">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FileCode className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
-                    <span className="truncate font-mono text-xs text-body">{previewFile.path}</span>
-                  </div>
-                  <span className="chip">Unified diff</span>
-                </div>
-
-                <div className="code-scroll max-h-[340px] bg-page py-2">
-                  {previewLines.map((line, index) => {
-                    const tone =
-                      line.type === 'added'
-                        ? 'diff-row diff-row--add'
-                        : line.type === 'deleted'
-                        ? 'diff-row diff-row--del'
-                        : 'diff-row';
-                    const prefix =
-                      line.type === 'added' ? '+' : line.type === 'deleted' ? '−' : ' ';
-                    const markerTone =
-                      line.type === 'added'
-                        ? ''
-                        : line.type === 'deleted'
-                        ? ''
-                        : 'diff-marker--neutral';
-
-                    return (
-                      <div
-                        key={`${index}-${line.oldLineNumber}-${line.newLineNumber}`}
-                        className={`${tone} py-[1px]`}
-                      >
-                        <span className="code-gutter w-8">{line.oldLineNumber ?? ''}</span>
-                        <span className="code-gutter w-8">{line.newLineNumber ?? ''}</span>
-                        <span className={`diff-marker ${markerTone}`}>{prefix}</span>
-                        <span className="code-source">
-                          {renderHighlightedLine(line.content, previewFile.language)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-soft px-4 py-2.5">
-                  <span className="text-[11px] text-faint">
-                    Grounded in the real base and proposed files.
+            {/* Main Headline */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
+              <div className="lg:col-span-8 flex flex-col gap-4">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-ink font-['Plus_Jakarta_Sans',sans-serif]">
+                  Talk to your codebase.
+                  <span className="block bg-gradient-to-r from-[#f59e0b] via-amber-300 to-[#8b5cf6] bg-clip-text text-transparent">
+                    Navigate and code hands-free.
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('pr')}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
-                  >
-                    Open review
-                    <ArrowRight className="h-3 w-3" aria-hidden="true" />
-                  </button>
+                </h1>
+                <p className="text-base sm:text-lg text-body max-w-2xl leading-relaxed">
+                  Query your project structure, inspect code branches, diagnose bugs, and explore edits using natural voice commands in real time.
+                </p>
+              </div>
+
+              <div className="lg:col-span-4 flex flex-col gap-2 bg-[#0d101a] p-5 rounded-xl border border-secondary/20 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-secondary uppercase font-semibold">Zero Remote Storage</span>
+                  <span className="px-2 py-0.5 rounded bg-accent/10 text-accent font-mono text-[10px] border border-accent/20">Local AST</span>
+                </div>
+                <p className="text-xs text-body leading-relaxed">
+                  Code analysis executes strictly within your local browser sandbox. Your proprietary source files never touch external servers.
+                </p>
+              </div>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => onNavigate('project')}
+                className="group inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent text-[#1f1300] text-sm font-semibold shadow-[0_0_24px_rgba(245,158,11,0.35)] transition-all hover:bg-accent-hover hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span>Open Sample Project</span>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('explore')}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#1a1f30] hover:bg-[#242a40] text-ink text-sm font-medium border border-[#242a40] transition-all hover:border-secondary/40 cursor-pointer"
+              >
+                <FileCode className="h-4 w-4 text-secondary" />
+                <span>Upload Code (ZIP / Git)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('pr')}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-[#0d101a] hover:bg-[#131724] text-accent font-mono text-[11px] uppercase tracking-wider border border-accent/30 transition-all cursor-pointer"
+              >
+                <GitPullRequest className="h-3.5 w-3.5 text-accent" />
+                <span>PR #284 Review</span>
+              </button>
+            </div>
+
+            {/* Hero Visual: Acoustic Voice Matrix 3D Scene (7 cols) + Voice Telemetry HUD (5 cols) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch mt-2">
+              {/* 3D Scene Container */}
+              <div className="lg:col-span-7 relative flex flex-col justify-between rounded-2xl bg-[#06070b] border border-accent/20 shadow-2xl overflow-hidden min-h-[440px] p-5">
+                <div className="flex items-center justify-between z-20">
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#0d101a]/90 backdrop-blur-md border border-accent/30">
+                    <span className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-[0_0_8px_#f59e0b]" />
+                    <span className="font-mono text-[11px] text-ink uppercase tracking-wider">Acoustic Matrix // Voice Orb</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded bg-secondary/15 text-secondary font-mono text-[10px] border border-secondary/30">
+                    3D Equalizer Active
+                  </span>
+                </div>
+
+                {/* Live Three.js Acoustic Waveform Canvas */}
+                <AcousticSphere3D />
+
+                {/* Bottom Telemetry inside 3D canvas */}
+                <div className="relative z-20 flex items-center justify-between text-faint font-mono text-[10px] border-t border-[#1a1f30]/60 pt-3 bg-gradient-to-t from-[#06070b]/80 to-transparent">
+                  <span className="text-accent font-medium flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    Golden Orbital Harmonic
+                  </span>
+                  <span className="text-secondary font-medium flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                    Violet Waveform Sphere
+                  </span>
+                </div>
+              </div>
+
+              {/* Voice Telemetry HUD */}
+              <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-[#0d101a] border border-[#1a1f30]/70 p-5 sm:p-6 shadow-xl relative">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-[#1a1f30]/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-accent animate-ping" />
+                      <span className="font-mono text-[11px] text-ink uppercase font-bold tracking-wider">Voice Telemetry</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-accent/10 text-accent font-mono text-[10px] border border-accent/20">Ready</span>
+                  </div>
+
+                  {/* Audio Waveform Equalizer Display */}
+                  <div className="my-4 p-4 rounded-xl bg-[#06070b] border border-[#1a1f30]/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between font-mono text-[10px] text-faint">
+                      <span className="flex items-center gap-1.5 text-ink">
+                        <Mic className="h-3.5 w-3.5 text-accent" />
+                        Microphone Input
+                      </span>
+                      <span className="text-secondary font-semibold">Optimal dB</span>
+                    </div>
+                    <div className="h-10 w-full flex items-center justify-between gap-1.5 px-2">
+                      <span className="w-1.5 bg-accent/70 rounded-full h-3" />
+                      <span className="w-1.5 bg-accent rounded-full h-6 animate-pulse" />
+                      <span className="w-1.5 bg-secondary rounded-full h-9 animate-pulse" style={{ animationDelay: '100ms' }} />
+                      <span className="w-1.5 bg-[var(--accent-pink)] rounded-full h-7 animate-pulse" style={{ animationDelay: '200ms' }} />
+                      <span className="w-1.5 bg-accent rounded-full h-10 animate-pulse" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 bg-secondary rounded-full h-5 animate-pulse" style={{ animationDelay: '80ms' }} />
+                      <span className="w-1.5 bg-accent rounded-full h-8 animate-pulse" style={{ animationDelay: '250ms' }} />
+                      <span className="w-1.5 bg-secondary/80 rounded-full h-4 animate-pulse" />
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-[#1a1f30]/50 mt-1 border border-[#242a40]/40">
+                      <span className="font-mono text-[10px] text-accent uppercase block mb-1 font-semibold">Spoken Query Sample</span>
+                      <p className="font-mono text-[12px] text-ink leading-relaxed">
+                        “Show the authentication flow in auth.js and check environment variables”
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grounding Feedback Card */}
+                <div className="p-4 rounded-xl bg-[#131724] border border-[#1a1f30]/70 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-accent uppercase font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-accent" />
+                      Code Grounded
+                    </span>
+                    <span className="text-faint font-mono text-[10px]">src/auth.js:L9</span>
+                  </div>
+                  <p className="text-xs text-body">
+                    Matched target file and highlighted the JWT fallback token condition.
+                  </p>
+                  <div className="flex items-center justify-between pt-2 border-t border-[#1a1f30]/40">
+                    <span className="font-mono text-[10px] text-secondary">Tap floating mic to speak</span>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('project')}
+                      className="px-3 py-1 rounded bg-accent/20 hover:bg-accent text-accent hover:text-[#1f1300] font-mono text-[10px] font-semibold transition-all border border-accent/30 cursor-pointer"
+                    >
+                      Inspect Code
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
