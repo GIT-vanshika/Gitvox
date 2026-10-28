@@ -882,6 +882,28 @@
   animation: drawer-in 0.18s ease-out;
 }
 
+/* Monaco Editor custom slideable scrollbars */
+.monaco-editor .scrollbar .slider {
+  background: rgba(245, 158, 11, 0.45) !important;
+  border: 1px solid rgba(245, 158, 11, 0.6) !important;
+  border-radius: 6px !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
+  cursor: grab !important;
+}
+
+.monaco-editor .scrollbar .slider:hover,
+.monaco-editor .scrollbar .slider.active {
+  background: rgba(245, 158, 11, 0.85) !important;
+  border-color: rgba(245, 158, 11, 1) !important;
+  cursor: grabbing !important;
+}
+
+.monaco-editor .scrollbar.horizontal,
+.monaco-editor .scrollbar.vertical {
+  background: rgba(13, 16, 26, 0.75) !important;
+  border-radius: 6px !important;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

@@ -59,6 +59,8 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   });
 
   const [cursorPosition, setCursorPosition] = useState({ line: 9, col: 24 });
+  const [openEditorsCollapsed, setOpenEditorsCollapsed] = useState(false);
+  const [wordWrap, setWordWrap] = useState(false);
 
   const editorRef = useRef<any>(null);
   const initialContentsRef = useRef<Record<string, string>>({});
@@ -256,56 +258,68 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
 
             {/* Explorer Tree & Badges Scrollable Area */}
             <div className="flex-1 overflow-y-auto px-space-xs py-space-xs font-telemetry-tag text-telemetry-tag space-y-space-xs">
-              {/* OPEN EDITORS SECTION */}
+              {/* OPEN EDITORS SECTION (Interactive Dropdown) */}
               <div className="py-space-xs">
-                <div className="px-space-sm py-1 flex items-center justify-between text-outline cursor-pointer hover:text-on-surface">
-                  <div className="flex items-center gap-1 font-semibold">
-                    <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                <button
+                  type="button"
+                  onClick={() => setOpenEditorsCollapsed((prev) => !prev)}
+                  className="w-full px-space-sm py-1.5 flex items-center justify-between text-outline cursor-pointer hover:text-on-surface hover:bg-surface-container/40 rounded select-none transition-colors group"
+                  aria-expanded={!openEditorsCollapsed}
+                  title="Toggle Open Editors"
+                >
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <span className="material-symbols-outlined text-[16px] text-outline group-hover:text-primary transition-colors">
+                      {openEditorsCollapsed ? 'chevron_right' : 'expand_more'}
+                    </span>
                     <span className="tracking-widest text-[10px]">OPEN EDITORS</span>
                   </div>
-                  <span className="text-[10px] px-1 rounded bg-surface-container text-on-surface-variant">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-telemetry-tag font-semibold">
                     {openFiles.length}
                   </span>
-                </div>
+                </button>
 
-                {/* List of Open Editors */}
-                {openFiles.map((filePath) => {
-                  const file = project.files.find((f) => f.path === filePath);
-                  const isCurrent = filePath === activeFile.path;
-                  return (
-                    <div
-                      key={filePath}
-                      onClick={() => onSelectFile(filePath)}
-                      className={`group mx-1 px-space-sm py-1.5 rounded flex items-center justify-between cursor-pointer transition-all ${
-                        isCurrent
-                          ? 'bg-surface-container border border-primary/30 shadow-sm'
-                          : 'hover:bg-surface-container/60 text-on-surface-variant'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        {isCurrent ? (
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
-                        ) : (
-                          <span className="w-1.5 h-1.5"></span>
-                        )}
-                        <span className="material-symbols-outlined text-[16px] text-secondary">javascript</span>
-                        <span className={`truncate ${isCurrent ? 'text-on-surface font-semibold' : ''}`}>
-                          {file ? file.name : filePath.split('/').pop()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => handleCloseTab(e, filePath)}
-                          className="material-symbols-outlined text-[14px] text-outline opacity-0 group-hover:opacity-100 hover:text-on-surface transition-all p-0.5"
-                          type="button"
-                          title="Close"
+                {/* List of Open Editors - Collapsible */}
+                {!openEditorsCollapsed && (
+                  <div className="space-y-0.5 mt-0.5">
+                    {openFiles.map((filePath) => {
+                      const file = project.files.find((f) => f.path === filePath);
+                      const isCurrent = filePath === activeFile.path;
+                      return (
+                        <div
+                          key={filePath}
+                          onClick={() => onSelectFile(filePath)}
+                          className={`group mx-1 px-space-sm py-1.5 rounded flex items-center justify-between cursor-pointer transition-all ${
+                            isCurrent
+                              ? 'bg-surface-container border border-primary/30 shadow-sm'
+                              : 'hover:bg-surface-container/60 text-on-surface-variant'
+                          }`}
                         >
-                          close
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                          <div className="flex items-center gap-2 truncate">
+                            {isCurrent ? (
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                            ) : (
+                              <span className="w-1.5 h-1.5"></span>
+                            )}
+                            <span className="material-symbols-outlined text-[16px] text-secondary">javascript</span>
+                            <span className={`truncate ${isCurrent ? 'text-on-surface font-semibold' : ''}`}>
+                              {file ? file.name : filePath.split('/').pop()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => handleCloseTab(e, filePath)}
+                              className="material-symbols-outlined text-[14px] text-outline opacity-0 group-hover:opacity-100 hover:text-on-surface transition-all p-0.5"
+                              type="button"
+                              title="Close"
+                            >
+                              close
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* FILES TREE SECTION */}
@@ -393,6 +407,18 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
 
               {/* Editor View Action Icons */}
               <div className="flex items-center gap-space-xs text-on-surface-variant px-space-sm">
+                <button
+                  onClick={() => setWordWrap((prev) => !prev)}
+                  className={`p-1 rounded transition-colors cursor-pointer ${
+                    wordWrap
+                      ? 'text-primary bg-primary/10'
+                      : 'hover:text-on-surface hover:bg-surface-container'
+                  }`}
+                  title={wordWrap ? 'Disable Word Wrap (Slide Horizontally)' : 'Enable Word Wrap'}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px]">wrap_text</span>
+                </button>
                 {isEdited && (
                   <button
                     onClick={handleResetFile}
@@ -424,10 +450,10 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
               </div>
             </div>
 
-            {/* Editor Canvas Area */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-surface relative">
+            {/* Editor Canvas Area with Full Sliding Capability */}
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden bg-surface relative">
               {/* Monaco Editor Container */}
-              <div className="flex-1 relative w-full h-full min-h-[360px]">
+              <div className="flex-1 min-h-0 min-w-0 relative w-full h-full">
                 <Editor
                   height="100%"
                   language={getMonacoLanguage(activeFile.path)}
@@ -443,13 +469,25 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     fontSize: 13,
                     fontFamily: 'JetBrains Mono, monospace',
                     lineHeight: 22,
-                    minimap: { enabled: true },
-                    scrollBeyondLastLine: false,
+                    minimap: { enabled: true, side: 'right' },
+                    scrollBeyondLastLine: true,
+                    scrollBeyondLastColumn: 12,
                     automaticLayout: true,
                     smoothScrolling: true,
                     renderLineHighlight: 'all',
                     bracketPairColorization: { enabled: true },
                     tabSize: 2,
+                    wordWrap: wordWrap ? 'on' : 'off',
+                    scrollbar: {
+                      vertical: 'visible',
+                      horizontal: 'visible',
+                      verticalScrollbarSize: 14,
+                      horizontalScrollbarSize: 14,
+                      verticalSliderSize: 14,
+                      horizontalSliderSize: 14,
+                      useShadows: true,
+                      alwaysConsumeMouseWheel: false,
+                    },
                   }}
                 />
               </div>
