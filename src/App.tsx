@@ -377,6 +377,7 @@ export function App() {
             onResetWorkspace={handleResetWorkspace}
             onNavigate={handleNavigate}
             systemStatus={systemStatus}
+            onOpenChat={openChatAssistant}
           />
         )}
 

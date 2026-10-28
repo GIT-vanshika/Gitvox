@@ -1,18 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import {
   Code2,
-  X,
   FileCode,
   FolderGit2,
   GitPullRequest,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
   RotateCcw,
   Search,
-  Send,
   Sparkles,
 } from 'lucide-react';
 import { GitvoxWordmark } from '../components/common/GitvoxBrand';
@@ -32,14 +28,15 @@ interface ProjectWorkspacePageProps {
   onSelectFile: (filePath: string) => void;
   selectedFunctionName: string | null;
   onSelectFunction: (fn: CodeFunction) => void;
-  explanations: AIExplanation[];
-  onExplainProjectOverview: () => void;
+  explanations?: AIExplanation[];
+  onExplainProjectOverview?: () => void;
   onExplainCurrentFile: () => void;
-  onAskQuestion: (question: string) => void;
-  onExecuteCommand: (command: string) => void;
+  onAskQuestion?: (question: string) => void;
+  onExecuteCommand?: (command: string) => void;
   onResetWorkspace: () => void;
   onNavigate: (route: RouteId) => void;
   systemStatus: SystemStatus;
+  onOpenChat?: () => void;
 }
 
 export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
@@ -48,59 +45,61 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   onSelectFile,
   selectedFunctionName,
   onSelectFunction,
-  explanations,
-  onExplainProjectOverview,
   onExplainCurrentFile,
-  onAskQuestion,
-  onExecuteCommand,
   onResetWorkspace,
   onNavigate,
   systemStatus,
+  onOpenChat,
 }) => {
   const [fileSearchQuery, setFileSearchQuery] = useState('');
-  const [questionInput, setQuestionInput] = useState('');
   const [selectedLineRange, setSelectedLineRange] = useState<[number, number] | null>(null);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
-  const [showQuestionInput, setShowQuestionInput] = useState(false);
-  const [mobileTab, setMobileTab] = useState<'files' | 'code' | 'ask'>('code');
-  const [dismissedExplanationIds, setDismissedExplanationIds] = useState<string[]>([]);
+  const [mobileTab, setMobileTab] = useState<'files' | 'code'>('code');
 
   const activeFile: ProjectFile = useMemo(() => {
     return project.files.find((f) => f.path === selectedFilePath) || project.files[0];
   }, [project.files, selectedFilePath]);
 
+  const codeLines = useMemo(() => {
+    if (!activeFile) return [];
+    return activeFile.content.split('\n');
+  }, [activeFile]);
+
   const filteredFiles = useMemo(() => {
     const q = fileSearchQuery.trim().toLowerCase();
     if (!q) return project.files;
-    return project.files.filter(
-      (f) =>
-        f.path.toLowerCase().includes(q) ||
-        f.language.toLowerCase().includes(q) ||
-        f.functions.some((fn) => fn.name.toLowerCase().includes(q))
-    );
+    return project.files.filter((f) => {
+      const matchName = f.name.toLowerCase().includes(q) || f.path.toLowerCase().includes(q);
+      const matchFn = f.functions.some((fn) => fn.name.toLowerCase().includes(q));
+      return matchName || matchFn;
+    });
   }, [project.files, fileSearchQuery]);
 
-  const codeLines = useMemo(() => {
-    return activeFile ? activeFile.content.replace(/\r\n/g, '\n').split('\n') : [];
-  }, [activeFile]);
-
-  const visibleExplanations = explanations.filter(
-    (exp) => !dismissedExplanationIds.includes(exp.id)
-  );
+  const handleLineClick = (lineNum: number) => {
+    if (!selectedLineRange) {
+      setSelectedLineRange([lineNum, lineNum]);
+    } else if (selectedLineRange[0] === selectedLineRange[1]) {
+      const start = Math.min(selectedLineRange[0], lineNum);
+      const end = Math.max(selectedLineRange[0], lineNum);
+      setSelectedLineRange([start, end]);
+    } else {
+      setSelectedLineRange([lineNum, lineNum]);
+    }
+  };
 
   const handleFunctionClick = (fn: CodeFunction) => {
     setSelectedLineRange([fn.startLine, fn.endLine]);
     onSelectFunction(fn);
-    setMobileTab('ask');
+    if (onOpenChat) {
+      onOpenChat();
+    }
   };
 
-  const handleQuestionSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = questionInput.trim();
-    if (!trimmed) return;
-    onAskQuestion(trimmed);
-    setQuestionInput('');
+  const handleSummarizeFileClick = () => {
+    onExplainCurrentFile();
+    if (onOpenChat) {
+      onOpenChat();
+    }
   };
 
   return (
@@ -121,6 +120,18 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {onOpenChat && (
+              <button
+                type="button"
+                onClick={onOpenChat}
+                className="btn btn-secondary btn-sm"
+                title="Start a chat with Gitvox AI"
+              >
+                <MessageSquare className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                <span>Start Chat</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => onNavigate('pr')}
@@ -154,14 +165,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
               loaded {project.loadedAt}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onExplainProjectOverview}
-            className="btn btn-secondary btn-sm"
-          >
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            Explain project
-          </button>
         </div>
 
         {/* Mobile pane switcher */}
@@ -185,16 +188,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
             className="tab-bar__item"
           >
             Code
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mobileTab === 'ask'}
-            data-active={mobileTab === 'ask'}
-            onClick={() => setMobileTab('ask')}
-            className="tab-bar__item"
-          >
-            Context ({visibleExplanations.length})
           </button>
         </div>
 
@@ -250,21 +243,23 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                         setSelectedLineRange(null);
                         setMobileTab('code');
                       }}
-                      className={`flex w-full items-start justify-between gap-2 px-3 py-2 text-left transition-colors cursor-pointer ${
-                        isSelected ? 'bg-[var(--accent-soft)]' : 'hover:bg-soft'
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'border-l-2 border-l-[var(--accent)] bg-[var(--accent-soft)]'
+                          : 'hover:bg-soft'
                       }`}
                     >
-                      <span className="flex min-w-0 items-start gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
                         <FileCode
-                          className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
+                          className={`h-3.5 w-3.5 shrink-0 ${
                             isSelected ? 'text-accent' : 'text-faint'
                           }`}
                           aria-hidden="true"
                         />
                         <span className="min-w-0">
                           <span
-                            className={`block truncate font-mono text-[11px] ${
-                              isSelected ? 'font-medium text-ink' : 'text-body'
+                            className={`block truncate font-mono text-xs ${
+                              isSelected ? 'font-semibold text-ink' : 'text-body'
                             }`}
                           >
                             {file.name}
@@ -288,7 +283,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
             </div>
           </aside>
 
-          {/* Source viewer */}
+          {/* Source viewer: Expands to FULL width on the right (Code context panel removed) */}
           <div
             className={`${mobileTab === 'code' ? 'flex' : 'hidden'} min-w-0 flex-1 lg:flex lg:flex-col h-[calc(100vh-190px)] min-h-[500px] max-h-[820px]`}
           >
@@ -320,26 +315,11 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 <div className="flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      onExplainCurrentFile();
-                      setMobileTab('ask');
-                    }}
+                    onClick={handleSummarizeFileClick}
                     className="btn btn-primary btn-sm"
                   >
                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                     Summarize file
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelOpen((prev) => !prev)}
-                    aria-label={rightPanelOpen ? 'Collapse context panel' : 'Expand context panel'}
-                    className="btn btn-ghost btn-icon btn-sm hidden xl:inline-flex"
-                  >
-                    {rightPanelOpen ? (
-                      <PanelRightClose className="h-4 w-4" />
-                    ) : (
-                      <PanelRightOpen className="h-4 w-4" />
-                    )}
                   </button>
                 </div>
               </div>
@@ -351,27 +331,32 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     const isSelected = selectedFunctionName === fn.name;
                     return (
                       <button
-                        key={`${fn.name}-${fn.startLine}`}
+                        key={fn.name}
                         type="button"
                         onClick={() => handleFunctionClick(fn)}
-                        className={`chip cursor-pointer transition-colors ${
+                        className={`rounded border px-2 py-0.5 font-mono text-[10px] transition-colors cursor-pointer ${
                           isSelected
-                            ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-accent'
-                            : 'hover:border-line-strong hover:text-ink'
+                            ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-accent font-semibold'
+                            : 'border-line bg-page text-body hover:border-[var(--border-strong)] hover:text-ink'
                         }`}
                       >
-                        {fn.name}() <span className="text-faint">L{fn.startLine}</span>
+                        {fn.name}()
                       </button>
                     );
                   })}
                 </div>
               )}
 
-              <div className="code-scroll flex-1 py-2">
-                {codeLines.map((lineText, idx) => {
+              {/* Code line viewer */}
+              <div
+                className="code-scroll flex-1 py-1 font-mono text-xs"
+                tabIndex={0}
+                aria-label={`Code content for ${activeFile?.path}`}
+              >
+                {codeLines.map((lineContent, idx) => {
                   const lineNum = idx + 1;
                   const isHighlighted =
-                    selectedLineRange !== null &&
+                    selectedLineRange &&
                     lineNum >= selectedLineRange[0] &&
                     lineNum <= selectedLineRange[1];
 
@@ -379,21 +364,22 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
 
                   return (
                     <div
-                      key={`${activeFile?.path}-L${lineNum}`}
-                      className={`code-row py-[1px] ${
-                        isHighlighted ? 'bg-[var(--diff-focus-bg)]' : 'hover:bg-soft'
+                      key={lineNum}
+                      onClick={() => handleLineClick(lineNum)}
+                      className={`group flex items-start px-2 py-[1px] cursor-pointer hover:bg-muted ${
+                        isHighlighted ? 'bg-[var(--accent-soft)]' : ''
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedLineRange([lineNum, lineNum])}
-                        aria-label={`Select line ${lineNum}`}
-                        className="code-gutter code-gutter--button"
-                      >
+                      <span className="w-10 shrink-0 select-none text-right font-mono text-[10px] leading-5 tabular-nums text-faint">
                         {lineNum}
-                      </button>
-                      <div className="code-source">
-                        {renderHighlightedLine(lineText, activeFile?.language)}
+                      </span>
+                      <span className="w-4 shrink-0 select-none text-center font-mono text-[11px] leading-5 text-faint">
+                        {isHighlighted ? '▸' : ' '}
+                      </span>
+                      <div className="flex min-w-0 flex-1 items-center justify-between">
+                        <span className="whitespace-pre text-[12px] leading-5 text-ink">
+                          {renderHighlightedLine(lineContent, activeFile?.language || 'javascript')}
+                        </span>
                         {fnAtLine && (
                           <button
                             type="button"
@@ -410,127 +396,10 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
               </div>
             </section>
           </div>
-
-          {/* Context / results */}
-          <aside
-            aria-label="Code context panel"
-            className={`${
-              mobileTab === 'ask' ? 'flex' : 'hidden'
-            } ${
-              rightPanelOpen ? 'lg:flex' : 'lg:hidden'
-            } w-full min-w-0 flex-col rounded-lg border border-line bg-page lg:w-72 xl:w-80 lg:shrink-0 h-[calc(100vh-190px)] min-h-[500px] max-h-[820px]`}
-          >
-            <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-2.5">
-              <h2 className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-                <MessageSquare className="h-3.5 w-3.5 text-faint" aria-hidden="true" />
-                Code context
-              </h2>
-              <span className="truncate font-mono text-[10px] text-faint">{activeFile?.name}</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2.5 p-3">
-              {visibleExplanations.length === 0 && (
-                <p className="rounded-md border border-line bg-soft p-3 text-[11px] leading-5 text-faint">
-                  No explanations yet. Select a function, summarize the file, or use the microphone
-                  to ask a question.
-                </p>
-              )}
-
-              {visibleExplanations.map((exp) => (
-                <article
-                  key={exp.id}
-                  className="rounded-md border border-line bg-soft p-3 text-xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-[12px] font-semibold text-ink">{exp.title}</h3>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDismissedExplanationIds((prev) => [...prev, exp.id])
-                      }
-                      aria-label={`Dismiss ${exp.title}`}
-                      title="Dismiss"
-                      className="-mr-1 -mt-0.5 rounded p-0.5 text-faint transition-colors hover:bg-muted hover:text-ink cursor-pointer"
-                    >
-                      <X className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] text-faint">
-                    <span className="text-accent">{exp.scopeLabel}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{exp.timestamp}</span>
-                  </div>
-
-                  <p className="mt-2 text-[11px] leading-5 text-body">{exp.summary}</p>
-
-                  {exp.details.length > 0 && (
-                    <ul className="mt-2 space-y-1 border-t border-line pt-2 text-[11px] leading-5 text-body">
-                      {exp.details.map((detail, idx) => (
-                        <li key={idx} className="flex gap-1.5">
-                          <span className="text-faint" aria-hidden="true">
-                            •
-                          </span>
-                          <span>{detail}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {exp.evidenceSnippet && (
-                    <pre className="code-scroll mt-2 rounded border border-line bg-page p-2 font-mono text-[10px] leading-4 text-ink">
-                      {exp.evidenceSnippet}
-                    </pre>
-                  )}
-
-                  <p className="mt-2 border-t border-line pt-1.5 text-[10px] leading-4 text-faint">
-                    {exp.confidenceNote}
-                  </p>
-                </article>
-              ))}
-            </div>
-
-            <div className="mt-auto border-t border-line p-3">
-              {!showQuestionInput ? (
-                <button
-                  type="button"
-                  onClick={() => setShowQuestionInput(true)}
-                  className="text-[11px] font-medium text-body underline-offset-2 hover:text-ink hover:underline cursor-pointer"
-                >
-                  Use text instead
-                </button>
-              ) : (
-                <form onSubmit={handleQuestionSubmit}>
-                  <label htmlFor="workspace-question-input" className="sr-only">
-                    Ask a question or type a command about {activeFile?.name}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="workspace-question-input"
-                      type="text"
-                      value={questionInput}
-                      onChange={(e) => setQuestionInput(e.target.value)}
-                      placeholder={`Ask about ${activeFile?.name}…`}
-                      className="field min-w-0 flex-1"
-                    />
-                    <button type="submit" className="btn btn-primary btn-sm shrink-0">
-                      <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                      Ask
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowQuestionInput(false)}
-                    className="mt-2 text-[11px] text-faint hover:text-ink cursor-pointer"
-                  >
-                    Use voice instead
-                  </button>
-                </form>
-              )}
-            </div>
-          </aside>
         </div>
       </main>
     </div>
   );
 };
+
+export default ProjectWorkspacePage;
