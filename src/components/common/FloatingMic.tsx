@@ -1,21 +1,19 @@
 import React from 'react';
-import { Mic, MessageSquare } from 'lucide-react';
+import { Mic } from 'lucide-react';
 
 export interface FloatingActionsProps {
   onVoiceClick: () => void;
-  onChatClick: () => void;
+  onChatClick?: () => void;
   /** Hidden while the assistant results panel owns the screen. */
   hidden?: boolean;
   voiceState?: 'idle' | 'listening' | 'processing' | 'error';
 }
 
 /**
- * Voice and chat shortcuts, anchored bottom-right within the viewport.
- * Chat button sits directly above the floating microphone button.
+ * Voice action shortcut, anchored bottom-right within the viewport.
  */
 export const FloatingActions: React.FC<FloatingActionsProps> = ({
   onVoiceClick,
-  onChatClick,
   hidden = false,
   voiceState = 'idle',
 }) => {
@@ -25,24 +23,8 @@ export const FloatingActions: React.FC<FloatingActionsProps> = ({
     <div
       className="floating-actions"
       role="region"
-      aria-label="Gitvox voice and chat assistant shortcuts"
+      aria-label="Gitvox voice assistant shortcut"
     >
-      {/* Chat button directly above the microphone */}
-      <div className="floating-action-item">
-        <button
-          type="button"
-          onClick={onChatClick}
-          aria-label="Start text chat with Gitvox"
-          title="Start text chat with Gitvox"
-          className="floating-action-btn floating-action-btn--chat"
-        >
-          <MessageSquare className="h-5 w-5" aria-hidden="true" />
-        </button>
-        <span className="floating-action-label" aria-hidden="true">
-          Start Chat
-        </span>
-      </div>
-
       {/* Voice microphone button */}
       <div
         className={`floating-action-item ${
@@ -79,7 +61,6 @@ export const FloatingMic: React.FC<{
 }> = ({ onClick, hidden, state }) => (
   <FloatingActions
     onVoiceClick={onClick}
-    onChatClick={onClick}
     hidden={hidden}
     voiceState={state}
   />
