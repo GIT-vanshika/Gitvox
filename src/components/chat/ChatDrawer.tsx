@@ -272,10 +272,23 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     startListening();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleRetry = (transcript: string) => {
     lastHandledRef.current = { text: '', at: 0 };
     void runRequest(transcript);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div
