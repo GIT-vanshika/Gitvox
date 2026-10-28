@@ -360,8 +360,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     lineNum >= selectedLineRange[0] &&
                     lineNum <= selectedLineRange[1];
 
-                  const fnAtLine = activeFile?.functions.find((f) => f.startLine === lineNum);
-
                   return (
                     <div
                       key={lineNum}
@@ -380,15 +378,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                         <span className="whitespace-pre text-[12px] leading-5 text-ink">
                           {renderHighlightedLine(lineContent, activeFile?.language || 'javascript')}
                         </span>
-                        {fnAtLine && (
-                          <button
-                            type="button"
-                            onClick={() => handleFunctionClick(fnAtLine)}
-                            className="ml-4 rounded border border-line bg-page px-1.5 py-0.5 font-sans text-[10px] font-medium text-body transition-colors hover:border-[var(--accent)] hover:text-accent cursor-pointer"
-                          >
-                            Explain {fnAtLine.name}()
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
