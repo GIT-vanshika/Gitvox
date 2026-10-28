@@ -58,9 +58,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   });
 
   const [cursorPosition, setCursorPosition] = useState({ line: 9, col: 24 });
-  const [alertDismissed, setAlertDismissed] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
-  const [diagnosticRun, setDiagnosticRun] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('“Check if tokenService handles expired tokens”');
 
   const editorRef = useRef<any>(null);
@@ -90,7 +87,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   const handleResetFile = () => {
     if (activeFile && initialContentsRef.current[activeFile.path] !== undefined && onUpdateFileContent) {
       onUpdateFileContent(activeFile.path, initialContentsRef.current[activeFile.path]);
-      setAlertDismissed(false);
     }
   };
 
@@ -121,66 +117,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
     editor.onDidChangeCursorPosition((e) => {
       setCursorPosition({ line: e.position.lineNumber, col: e.position.column });
     });
-  };
-
-  const hasSecurityAlert = useMemo(() => {
-    if (alertDismissed) return false;
-    return (
-      activeFile.path.includes('auth.js') ||
-      activeFile.path.includes('auth.ts') ||
-      activeFile.content.includes("split(' ')[1]") ||
-      activeFile.content.includes('split(" ")[1]')
-    );
-  }, [activeFile, alertDismissed]);
-
-  const handle1ClickVoiceFix = async () => {
-    setIsFixing(true);
-    try {
-      const response = await fetch('/api/assistant/fix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: activeFile.path, code: activeFile.content }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.fixedCode && onUpdateFileContent) {
-          onUpdateFileContent(activeFile.path, data.fixedCode);
-          setAlertDismissed(true);
-          setLiveTranscript('“Applied Bearer validation guard and exp claim check”');
-          return;
-        }
-      }
-    } catch {
-      // Fallback local fix
-    }
-
-    // Direct local robust fix fallback
-    const targetPattern = /const token = authHeader(\?\.|\s*&&\s*authHeader\.)split\(['"] ['"]\)\[1\];/;
-    const replacement = `if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new AppSecurityError('MALFORMED_AUTHORIZATION_HEADER', 401);
-  }
-  const token = authHeader.split(' ')[1]?.trim();
-  if (!token) {
-    throw new AppSecurityError('MISSING_BEARER_CREDENTIALS', 401);
-  }`;
-
-    if (onUpdateFileContent) {
-      const nextContent = activeFile.content.includes("split(' ')[1]")
-        ? activeFile.content.replace(targetPattern, replacement)
-        : activeFile.content;
-      onUpdateFileContent(activeFile.path, nextContent);
-    }
-    setAlertDismissed(true);
-    setLiveTranscript('“Applied Bearer validation guard and exp claim check”');
-    setIsFixing(false);
-  };
-
-  const handleRunDiagnostic = () => {
-    setDiagnosticRun(true);
-    setLiveTranscript('“Running full WebAssembly AST diagnostic scan across files...”');
-    setTimeout(() => {
-      setLiveTranscript('“Diagnostic complete: 1 potential unchecked extraction flagged”');
-    }, 1200);
   };
 
   const handleQuickPrompt = (prompt: string) => {
@@ -327,31 +263,9 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
               </span>
               <div className="flex items-center gap-space-xs text-outline">
                 <button
-                  onClick={() => {
-                    const name = prompt('Enter new file name:');
-                    if (name && onUpdateFileContent) {
-                      onUpdateFileContent(`src/${name}`, '// New file\n');
-                      onSelectFile(`src/${name}`);
-                    }
-                  }}
-                  className="hover:text-primary transition-colors cursor-pointer p-0.5"
-                  title="New File"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[16px]">note_add</span>
-                </button>
-                <button
-                  onClick={() => prompt('Enter new folder name:')}
-                  className="hover:text-primary transition-colors cursor-pointer p-0.5"
-                  title="New Folder"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[16px]">create_new_folder</span>
-                </button>
-                <button
                   onClick={() => setSidebarOpen(false)}
                   className="hover:text-primary transition-colors cursor-pointer p-0.5"
-                  title="Collapse Folders"
+                  title="Collapse Sidebar"
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[16px]">unfold_less</span>
@@ -377,7 +291,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 {openFiles.map((filePath) => {
                   const file = project.files.find((f) => f.path === filePath);
                   const isCurrent = filePath === activeFile.path;
-                  const isAlert = isCurrent && hasSecurityAlert;
                   return (
                     <div
                       key={filePath}
@@ -400,11 +313,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
-                        {isAlert && (
-                          <span className="px-1.5 py-0.5 rounded bg-secondary/20 text-secondary font-bold text-[10px] tracking-normal border border-secondary/30">
-                            1 Alert
-                          </span>
-                        )}
                         <button
                           onClick={(e) => handleCloseTab(e, filePath)}
                           className="material-symbols-outlined text-[14px] text-outline opacity-0 group-hover:opacity-100 hover:text-on-surface transition-all p-0.5"
@@ -449,9 +357,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                             <span className="material-symbols-outlined text-[15px] text-primary">javascript</span>
                             <span className="truncate">{file.name}</span>
                           </div>
-                          {isCurrent && hasSecurityAlert && (
-                            <span className="w-2 h-2 rounded-full bg-primary" title="Needs security guard"></span>
-                          )}
                         </div>
                       );
                     })}
@@ -505,7 +410,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     >
                       {isCurrent && (
                         <span
-                          className={`w-2 h-2 rounded-full ${hasSecurityAlert ? 'bg-primary animate-pulse' : 'bg-primary'}`}
+                          className="w-2 h-2 rounded-full bg-primary"
                           title="Active File"
                         ></span>
                       )}
@@ -544,14 +449,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 >
                   <span className="material-symbols-outlined text-[18px]">download</span>
                 </button>
-                <button
-                  onClick={handleRunDiagnostic}
-                  className="p-1 hover:text-on-surface hover:bg-surface-container rounded transition-colors cursor-pointer"
-                  title="Voice Run Diagnostic"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-secondary">play_arrow</span>
-                </button>
                 {onOpenChat && (
                   <button
                     onClick={onOpenChat}
@@ -567,54 +464,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
 
             {/* Editor Canvas Area */}
             <div className="flex-1 flex flex-col overflow-hidden bg-surface relative">
-              {/* Security Alert Inline Card if vulnerable token extraction detected */}
-              {hasSecurityAlert && (
-                <div className="m-3 p-space-md rounded-xl bg-surface-container-lowest border border-primary/40 shadow-2xl relative overflow-hidden z-20">
-                  <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md pl-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded bg-secondary/20 text-secondary font-telemetry-tag text-[10px] font-bold border border-secondary/30">
-                          SYNTHETIC AUDIT
-                        </span>
-                        <span className="font-headline-md text-[14px] font-bold text-on-surface">
-                          Potential Unhandled Nullptr / Expired Token Bypass
-                        </span>
-                        <span className="text-primary font-telemetry-tag text-[11px] font-semibold">
-                          Line 9
-                        </span>
-                      </div>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant max-w-2xl leading-relaxed">
-                        <code className="text-primary font-code-block font-semibold">
-                          tokenService.verifySignature(token)
-                        </code>{' '}
-                        throws unhandled TypeError when header is malformed or expiration claim isn't validated.
-                      </p>
-                    </div>
-
-                    {/* 1-Click Voice Fix Button (Amber Accent) */}
-                    <div className="flex items-center gap-space-sm flex-shrink-0">
-                      <button
-                        onClick={handle1ClickVoiceFix}
-                        disabled={isFixing}
-                        className="px-space-md py-space-xs rounded-xl bg-primary text-on-primary font-body-sm text-body-sm font-bold flex items-center gap-2 shadow-[0_0_18px_rgba(245,158,11,0.3)] hover:bg-primary-fixed transition-all cursor-pointer"
-                        type="button"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">bolt</span>
-                        <span>{isFixing ? 'Applying fix...' : '1-Click Voice Fix'}</span>
-                      </button>
-                      <button
-                        onClick={onExplainCurrentFile}
-                        className="px-space-sm py-space-xs rounded-xl bg-surface-container text-on-surface-variant hover:text-on-surface font-body-sm text-body-sm transition-colors border border-surface-container-high cursor-pointer"
-                        type="button"
-                      >
-                        Explain Logic
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Monaco Editor Container */}
               <div className="flex-1 relative w-full h-full min-h-[360px]">
                 <Editor
@@ -727,7 +576,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 </div>
                 <div className="flex items-center gap-1.5 text-primary">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  <span>{hasSecurityAlert ? 'AST ALERT (Line 9)' : 'AST CLEAN'}</span>
+                  <span>AST CLEAN</span>
                 </div>
               </div>
 
