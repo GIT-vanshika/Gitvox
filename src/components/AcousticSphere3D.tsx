@@ -204,3 +204,4 @@ export const AcousticSphere3D: React.FC = () => {
 
   return <div ref={mountRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 };
+

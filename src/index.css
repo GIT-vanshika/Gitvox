@@ -1,5 +1,71 @@
 @import "tailwindcss";
 
+@theme {
+  --color-surface: #090a10;
+  --color-surface-container-lowest: #06070b;
+  --color-surface-container-low: #0d101a;
+  --color-surface-container: #131724;
+  --color-surface-container-high: #1a1f30;
+  --color-surface-container-highest: #242a40;
+  --color-on-surface: #f1f3f9;
+  --color-on-surface-variant: #9ca3af;
+  --color-outline: #6b7280;
+  --color-outline-variant: #2b3248;
+  --color-primary: #f59e0b;
+  --color-primary-fixed: #fbbf24;
+  --color-on-primary: #1f1300;
+  --color-secondary: #8b5cf6;
+  --color-secondary-fixed: #a78bfa;
+  --color-on-secondary: #1e0b4a;
+  --color-accent-pink: #ec4899;
+  --color-error: #f87171;
+
+  --font-display-hero: "Plus Jakarta Sans", sans-serif;
+  --font-headline-lg: "Plus Jakarta Sans", sans-serif;
+  --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-body-lg: "Inter", sans-serif;
+  --font-body-md: "Inter", sans-serif;
+  --font-body-sm: "Inter", sans-serif;
+  --font-telemetry-tag: "JetBrains Mono", monospace;
+  --font-code-block: "JetBrains Mono", monospace;
+  --font-voice-transcript: "JetBrains Mono", monospace;
+}
+
+.px-gutter { padding-left: 1.5rem; padding-right: 1.5rem; }
+.py-gutter { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.p-gutter { padding: 1.5rem; }
+.gap-gutter { gap: 1.5rem; }
+.p-space-xs { padding: 0.25rem; }
+.p-space-sm { padding: 0.5rem; }
+.p-space-md { padding: 1rem; }
+.p-space-lg { padding: 1.5rem; }
+.p-space-xl { padding: 2.5rem; }
+.px-space-xs { padding-left: 0.25rem; padding-right: 0.25rem; }
+.px-space-sm { padding-left: 0.5rem; padding-right: 0.5rem; }
+.px-space-md { padding-left: 1rem; padding-right: 1rem; }
+.px-space-lg { padding-left: 1.5rem; padding-right: 1.5rem; }
+.px-space-xl { padding-left: 2.5rem; padding-right: 2.5rem; }
+.py-space-xs { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.py-space-sm { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-space-md { padding-top: 1rem; padding-bottom: 1rem; }
+.py-space-lg { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.py-space-xl { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+.gap-space-xs { gap: 0.25rem; }
+.gap-space-sm { gap: 0.5rem; }
+.gap-space-md { gap: 1rem; }
+.gap-space-lg { gap: 1.5rem; }
+.gap-space-xl { gap: 2.5rem; }
+
+.text-display-hero { font-size: 48px; line-height: 56px; letter-spacing: -0.03em; }
+.text-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: -0.02em; }
+.text-headline-md { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; }
+.text-body-lg { font-size: 16px; line-height: 26px; letter-spacing: -0.005em; }
+.text-body-md { font-size: 14px; line-height: 22px; letter-spacing: 0em; }
+.text-body-sm { font-size: 12px; line-height: 18px; letter-spacing: 0.01em; }
+.text-telemetry-tag { font-size: 11px; line-height: 16px; letter-spacing: 0.08em; }
+.text-code-block { font-size: 13px; line-height: 20px; letter-spacing: 0em; }
+.text-voice-transcript { font-size: 14px; line-height: 22px; letter-spacing: 0.02em; }
+
 /* ---------------------------------------------------------------------------
    Gitvox - Voice GitOps 3D Redesign (Amber & Violet theme from Stitch)
    - Surface lowest: #06070b
