@@ -134,6 +134,25 @@ export function App() {
     setSystemStatus('Completed');
   };
 
+  const handleUpdateFileContent = (filePath: string, newContent: string) => {
+    setLoadedProject((prev) => {
+      const updatedFiles = prev.files.map((file) => {
+        if (file.path === filePath) {
+          return {
+            ...file,
+            content: newContent,
+            sizeBytes: new Blob([newContent]).size,
+          };
+        }
+        return file;
+      });
+      return {
+        ...prev,
+        files: updatedFiles,
+      };
+    });
+  };
+
   const handleExecuteCommand = (commandText: string): CommandResult => {
     const result = routeApplicationCommand(commandText, {
       project: loadedProject,
@@ -378,6 +397,7 @@ export function App() {
             onNavigate={handleNavigate}
             systemStatus={systemStatus}
             onOpenChat={openChatAssistant}
+            onUpdateFileContent={handleUpdateFileContent}
           />
         )}
 

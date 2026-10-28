@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import Editor, { OnMount } from '@monaco-editor/react';
 import {
   Code2,
   FileCode,
@@ -12,7 +13,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { GitvoxWordmark } from '../components/common/GitvoxBrand';
-import { renderHighlightedLine } from '../utils/syntaxHighlight';
 import {
   AIExplanation,
   CodeFunction,
@@ -21,6 +21,22 @@ import {
   RouteId,
   SystemStatus,
 } from '../types/gitvox';
+
+const getMonacoLanguage = (lang?: string, filePath?: string): string => {
+  if (filePath?.endsWith('.json')) return 'json';
+  if (filePath?.endsWith('.ts') || filePath?.endsWith('.tsx')) return 'typescript';
+  if (filePath?.endsWith('.js') || filePath?.endsWith('.jsx') || filePath?.endsWith('.mjs')) return 'javascript';
+  if (filePath?.endsWith('.md')) return 'markdown';
+  if (filePath?.endsWith('.css')) return 'css';
+  if (filePath?.endsWith('.html')) return 'html';
+  if (lang) {
+    const l = lang.toLowerCase();
+    if (l === 'js') return 'javascript';
+    if (l === 'ts') return 'typescript';
+    return l;
+  }
+  return 'javascript';
+};
 
 interface ProjectWorkspacePageProps {
   project: LoadedProject;
@@ -37,6 +53,7 @@ interface ProjectWorkspacePageProps {
   onNavigate: (route: RouteId) => void;
   systemStatus: SystemStatus;
   onOpenChat?: () => void;
+  onUpdateFileContent?: (filePath: string, newContent: string) => void;
 }
 
 export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
@@ -50,15 +67,39 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   onNavigate,
   systemStatus,
   onOpenChat,
+  onUpdateFileContent,
 }) => {
   const [fileSearchQuery, setFileSearchQuery] = useState('');
   const [selectedLineRange, setSelectedLineRange] = useState<[number, number] | null>(null);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [mobileTab, setMobileTab] = useState<'files' | 'code'>('code');
 
+  const editorRef = useRef<any>(null);
+  const initialContentsRef = useRef<Record<string, string>>({});
+
   const activeFile: ProjectFile = useMemo(() => {
     return project.files.find((f) => f.path === selectedFilePath) || project.files[0];
   }, [project.files, selectedFilePath]);
+
+  if (activeFile && initialContentsRef.current[activeFile.path] === undefined) {
+    initialContentsRef.current[activeFile.path] = activeFile.content;
+  }
+
+  const isEdited = Boolean(
+    activeFile &&
+    initialContentsRef.current[activeFile.path] !== undefined &&
+    activeFile.content !== initialContentsRef.current[activeFile.path]
+  );
+
+  const handleResetFile = () => {
+    if (activeFile && initialContentsRef.current[activeFile.path] !== undefined && onUpdateFileContent) {
+      onUpdateFileContent(activeFile.path, initialContentsRef.current[activeFile.path]);
+    }
+  };
+
+  const handleEditorDidMount: OnMount = (editor) => {
+    editorRef.current = editor;
+  };
 
   const codeLines = useMemo(() => {
     if (!activeFile) return [];
@@ -90,6 +131,15 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   const handleFunctionClick = (fn: CodeFunction) => {
     setSelectedLineRange([fn.startLine, fn.endLine]);
     onSelectFunction(fn);
+    if (editorRef.current) {
+      try {
+        editorRef.current.revealLineInCenter(fn.startLine);
+        editorRef.current.setPosition({ lineNumber: fn.startLine, column: 1 });
+        editorRef.current.focus();
+      } catch {
+        // Safe fallback if editor is still loading
+      }
+    }
     if (onOpenChat) {
       onOpenChat();
     }
@@ -310,9 +360,25 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                   <span className="hidden shrink-0 font-mono text-[11px] text-faint sm:inline">
                     {codeLines.length} lines · {activeFile?.language}
                   </span>
+                  {isEdited && (
+                    <span className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[10px] font-mono text-accent">
+                      Edited
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {isEdited && (
+                    <button
+                      type="button"
+                      onClick={handleResetFile}
+                      className="btn btn-ghost btn-sm text-[11px]"
+                      title="Revert edits for this file"
+                    >
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                      <span>Revert</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleSummarizeFileClick}
@@ -347,41 +413,51 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                 </div>
               )}
 
-              {/* Code line viewer */}
+              {/* VS Code Editor */}
               <div
-                className="code-scroll flex-1 py-1 font-mono text-xs"
-                tabIndex={0}
-                aria-label={`Code content for ${activeFile?.path}`}
+                className="flex-1 min-h-0 w-full relative overflow-hidden bg-[#1e1e1e]"
+                aria-label={`VS Code editor for ${activeFile?.path}`}
               >
-                {codeLines.map((lineContent, idx) => {
-                  const lineNum = idx + 1;
-                  const isHighlighted =
-                    selectedLineRange &&
-                    lineNum >= selectedLineRange[0] &&
-                    lineNum <= selectedLineRange[1];
-
-                  return (
-                    <div
-                      key={lineNum}
-                      onClick={() => handleLineClick(lineNum)}
-                      className={`group flex items-start px-2 py-[1px] cursor-pointer hover:bg-muted ${
-                        isHighlighted ? 'bg-[var(--accent-soft)]' : ''
-                      }`}
-                    >
-                      <span className="w-10 shrink-0 select-none text-right font-mono text-[10px] leading-5 tabular-nums text-faint">
-                        {lineNum}
-                      </span>
-                      <span className="w-4 shrink-0 select-none text-center font-mono text-[11px] leading-5 text-faint">
-                        {isHighlighted ? '▸' : ' '}
-                      </span>
-                      <div className="flex min-w-0 flex-1 items-center justify-between">
-                        <span className="whitespace-pre text-[12px] leading-5 text-ink">
-                          {renderHighlightedLine(lineContent, activeFile?.language || 'javascript')}
-                        </span>
-                      </div>
+                <Editor
+                  key={activeFile?.path}
+                  height="100%"
+                  language={getMonacoLanguage(activeFile?.language, activeFile?.path)}
+                  value={activeFile?.content || ''}
+                  theme="vs-dark"
+                  onChange={(val) => {
+                    if (val !== undefined && onUpdateFileContent && activeFile) {
+                      onUpdateFileContent(activeFile.path, val);
+                    }
+                  }}
+                  onMount={handleEditorDidMount}
+                  loading={
+                    <div className="flex h-full items-center justify-center text-xs text-faint">
+                      Loading VS Code editor…
                     </div>
-                  );
-                })}
+                  }
+                  options={{
+                    fontSize: 13,
+                    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+                    minimap: { enabled: true, side: 'right' },
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'all',
+                    tabSize: 2,
+                    automaticLayout: true,
+                    padding: { top: 12, bottom: 12 },
+                    smoothScrolling: true,
+                    cursorBlinking: 'smooth',
+                    cursorSmoothCaretAnimation: 'on',
+                    formatOnPaste: true,
+                    folding: true,
+                    bracketPairColorization: { enabled: true },
+                    guides: {
+                      bracketPairs: true,
+                      indentation: true,
+                    },
+                  }}
+                />
               </div>
             </section>
           </div>
