@@ -3,7 +3,7 @@
  * (`SpeechRecognition` / `webkitSpeechRecognition`).
  *
  * Supports both on-demand single command sessions and continuous wake-word
- * detection ("Gitvox") that automatically activates the microphone for a command.
+ * detection ("Hey Gitvox") that automatically activates the microphone for a command.
  *
  * No third-party SDKs, external models, or server roundtrips needed for speech recognition.
  */
@@ -66,7 +66,7 @@ export interface SpeechRecognitionLike {
 export type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 export const DEFAULT_SPEECH_LANGUAGE = 'en-US';
-export const WAKE_WORD = 'gitvox';
+export const WAKE_WORD = 'hey gitvox';
 
 export const SPEECH_LANGUAGE_PRESETS = [
   { id: 'en-US', label: 'English (US)' },
@@ -189,11 +189,12 @@ export interface SpeechRecognitionSession {
 }
 
 /**
- * Checks if a transcript contains the wake word "gitvox" (or phonetic variations like "get vox", "git box", "git fox").
+ * Checks if a transcript contains the wake phrase "Hey Gitvox" (or natural phonetic variations
+ * like "hey git vox", "hey get vox", "hey git box", "okay gitvox", or standalone "gitvox").
  */
 export function extractWakeWord(transcript: string): { detected: boolean; commandAfter: string } {
   const normalized = transcript.toLowerCase().trim();
-  const wakeWordPattern = /\b(gitvox|git\s*vox|git\s*box|git\s*fox|get\s*vox)\b/i;
+  const wakeWordPattern = /\b(?:hey|okay|ok|hi|hello)?\s*(?:gitvox|git\s*vox|git\s*box|git\s*fox|get\s*vox)\b/i;
   const match = normalized.match(wakeWordPattern);
   if (!match) {
     return { detected: false, commandAfter: '' };

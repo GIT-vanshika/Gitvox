@@ -11,7 +11,7 @@ Gitvox is a voice-first AI platform for understanding codebases and reviewing pu
 ## ✨ Core Capabilities
 
 1. **Wake-Word & Voice-First AI Assistant**:
-   - Speak **"Gitvox"** to open the microphone hands-free, then speak your command directly.
+   - Speak **"Hey Gitvox"** to open the microphone hands-free, then speak your command directly.
    - Anchored by a floating microphone at the bottom-left of the viewport with animated radar/listening states.
    - Driven entirely by the browser-native Web Speech API (`SpeechRecognition` / `webkitSpeechRecognition`) with zero third-party voice SDK dependencies.
    - Conversational, route-aware context routing that passes actual diff hunks, file contents, or line ranges to the AI model.
@@ -51,7 +51,7 @@ Gitvox is a voice-first AI platform for understanding codebases and reviewing pu
 
 Gitvox includes an intelligent, rule-backed voice command pipeline that normalizes transcripts, expands contractions, parses spoken numbers into digits, and maps natural phrases to deterministic actions.
 
-> **Wake Word:** Say **"Gitvox"** at any time while viewing the application to activate the microphone hands-free!
+> **Wake Phrase:** Say **"Hey Gitvox"** at any time while viewing the application to activate the microphone hands-free!
 
 ### 1. Explain the Pull Request
 *Gives a comprehensive walkthrough of the active PR's purpose, modified files, architectural impact, and risks.*

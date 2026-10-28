@@ -14,7 +14,7 @@ interface FloatingMicProps {
  * Features graphite circular base, neon-green microphone icon, subtle border,
  * and restrained shadow.
  *
- * Supports wake word "Gitvox" indication.
+ * Supports wake phrase "Hey Gitvox" indication.
  */
 export const FloatingMic: React.FC<FloatingMicProps> = ({
   onClick,
@@ -40,12 +40,12 @@ export const FloatingMic: React.FC<FloatingMicProps> = ({
           isListening
             ? 'Listening for voice command'
             : isWakeListening
-            ? 'Say "Gitvox" or click to speak'
+            ? 'Say "Hey Gitvox" or click to speak'
             : 'Start a voice command'
         }
         title={
           wakeWordEnabled
-            ? 'Say "Gitvox" or click to ask'
+            ? 'Say "Hey Gitvox" or click to ask'
             : 'Start a voice command (or click to ask Gitvox)'
         }
         data-state={state}
@@ -58,7 +58,7 @@ export const FloatingMic: React.FC<FloatingMicProps> = ({
         )}
       </button>
       <span className="floating-mic__label" aria-hidden="true">
-        {isWakeListening ? 'Say "Gitvox"' : 'Ask Gitvox'}
+        {isWakeListening ? 'Say "Hey Gitvox"' : 'Ask Gitvox'}
       </span>
     </div>
   );
