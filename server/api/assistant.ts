@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { getModelConfig, ModelError } from '../../server/modelClient';
+import { getModelConfig, ModelError } from '../modelClient';
 import {
   requestAssistantExplanation,
   validateAssistantRequest,
-} from '../../server/assistantClient';
-import { parseJsonBody, sendJson } from '../_utils';
+} from '../assistantClient';
+import { parseJsonBody, sendJson } from './_utils';
 
 export default async function handler(
   req: IncomingMessage & { body?: unknown },

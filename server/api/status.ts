@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { getPublicModelStatus } from '../../server/modelClient';
-import { sendJson } from '../_utils';
+import { getPublicModelStatus } from '../modelClient';
+import { sendJson } from './_utils';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method === 'OPTIONS') {

@@ -5,11 +5,11 @@ import {
   ModelError,
   requestModelExplanation,
   validateExplainRequest,
-} from '../server/modelClient';
+} from '../modelClient';
 import {
   requestAssistantExplanation,
   validateAssistantRequest,
-} from '../server/assistantClient';
+} from '../assistantClient';
 import { parseJsonBody, sendJson } from './_utils';
 
 export default async function handler(

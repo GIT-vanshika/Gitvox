@@ -4,7 +4,7 @@ import {
   ModelError,
   requestModelExplanation,
   validateExplainRequest,
-} from '../server/modelClient';
+} from '../modelClient';
 import { parseJsonBody, sendJson } from './_utils';
 
 export default async function handler(
