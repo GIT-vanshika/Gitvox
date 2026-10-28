@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
 import {
   Code2,
+  Download,
   FileCode,
   FolderGit2,
   GitPullRequest,
@@ -95,6 +96,19 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
     if (activeFile && initialContentsRef.current[activeFile.path] !== undefined && onUpdateFileContent) {
       onUpdateFileContent(activeFile.path, initialContentsRef.current[activeFile.path]);
     }
+  };
+
+  const handleDownloadFile = () => {
+    if (!activeFile) return;
+    const blob = new Blob([activeFile.content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = activeFile.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleEditorDidMount: OnMount = (editor) => {
@@ -379,6 +393,15 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                       <span>Revert</span>
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={handleDownloadFile}
+                    className="btn btn-secondary btn-sm"
+                    title={`Download ${activeFile?.name || 'file'}`}
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span>Download</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleSummarizeFileClick}
