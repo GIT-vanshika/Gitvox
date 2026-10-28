@@ -74,41 +74,80 @@ export function App() {
 
   // Background wake word detection listener
   const wakeSessionRef = useRef<SpeechRecognitionSession | null>(null);
+  const [wakeListeningActive, setWakeListeningActive] = useState(false);
+  const userInteractedRef = useRef(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [currentRoute]);
 
-  // Set up background wake word listener when assistant is closed
-  useEffect(() => {
-    if (assistantOpen || !isSpeechRecognitionSupported()) {
-      if (wakeSessionRef.current) {
-        wakeSessionRef.current.dispose();
-        wakeSessionRef.current = null;
-      }
-      return;
-    }
+  // Start wake listener
+  const startWakeListener = () => {
+    if (!isSpeechRecognitionSupported() || wakeSessionRef.current) return;
 
     try {
       const session = createSpeechRecognitionSession({
         continuous: true,
+        onStatus: (status) => {
+          if (status === 'listening') {
+            setWakeListeningActive(true);
+          } else if (status === 'idle' || status === 'error' || status === 'permission-denied') {
+            setWakeListeningActive(false);
+          }
+        },
         onWakeWordDetected: (_commandAfter) => {
-          // Wake word "Gitvox" detected! Open assistant and trigger listening
+          // Wake phrase "Hey Gitvox" detected! Open assistant and trigger listening
           openAssistant(true);
         },
+        onError: (_err) => {
+          setWakeListeningActive(false);
+        },
       });
+
       session.start();
       wakeSessionRef.current = session;
     } catch {
-      // Background wake listening fallback
+      setWakeListeningActive(false);
     }
+  };
 
-    return () => {
-      if (wakeSessionRef.current) {
-        wakeSessionRef.current.dispose();
-        wakeSessionRef.current = null;
+  const stopWakeListener = () => {
+    if (wakeSessionRef.current) {
+      wakeSessionRef.current.dispose();
+      wakeSessionRef.current = null;
+      setWakeListeningActive(false);
+    }
+  };
+
+  // Listen for user interaction to grant/activate speech recognition permission
+  useEffect(() => {
+    const handleFirstUserGesture = () => {
+      userInteractedRef.current = true;
+      if (!assistantOpen) {
+        startWakeListener();
       }
     };
+
+    window.addEventListener('click', handleFirstUserGesture, { passive: true });
+    window.addEventListener('keydown', handleFirstUserGesture, { passive: true });
+
+    // Also attempt immediate start
+    startWakeListener();
+
+    return () => {
+      window.removeEventListener('click', handleFirstUserGesture);
+      window.removeEventListener('keydown', handleFirstUserGesture);
+      stopWakeListener();
+    };
+  }, []);
+
+  // When drawer opens, suspend background wake listening; resume when drawer closes
+  useEffect(() => {
+    if (assistantOpen) {
+      stopWakeListener();
+    } else if (userInteractedRef.current) {
+      startWakeListener();
+    }
   }, [assistantOpen]);
 
   const activeProjectFile = useMemo(() => {
@@ -226,6 +265,7 @@ export function App() {
    * listening session; page-level text buttons open the drawer idle.
    */
   const openAssistant = (autoStart = false) => {
+    stopWakeListener();
     setAssistantAutoStart(autoStart);
     setAssistantOpen(true);
   };
@@ -235,7 +275,6 @@ export function App() {
    * unreachable (such as in static frontend deployments like Vercel).
    */
   const generateGroundedLocalExplanation = (transcript: string) => {
-    // Check if deterministic command matches
     const commandResult = routeApplicationCommand(transcript, {
       project: loadedProject,
       selectedFile: activeProjectFile,
@@ -271,7 +310,6 @@ export function App() {
       };
     }
 
-    // Otherwise contextual question response
     const qaExp = buildContextualQuestionResponse(
       transcript,
       loadedProject,
@@ -337,7 +375,6 @@ export function App() {
       setSystemStatus('Completed');
       return { kind: 'answer', title: built.title, explanation };
     } catch (_error) {
-      // Graceful fallback to Gitvox in-memory grounded analysis engine
       try {
         const localExplanation = generateGroundedLocalExplanation(transcript);
         setSystemStatus('Completed');
@@ -441,7 +478,7 @@ export function App() {
             ? 'processing'
             : systemStatus === 'Failed'
             ? 'error'
-            : isSpeechRecognitionSupported()
+            : wakeListeningActive
             ? 'wake-listening'
             : 'idle'
         }
