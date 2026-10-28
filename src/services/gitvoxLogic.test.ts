@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { zipSync, strToU8 } from 'fflate';
-import { computeFileDiff } from './diffService';
+import { computeFileDiff, generateUnifiedPatch } from './diffService';
 import { SAMPLE_PULL_REQUEST } from '../data/samplePullRequest';
 import { SAMPLE_PROJECT } from '../data/sampleProject';
 import { SAMPLE_FINDINGS } from '../data/sampleFindings';
@@ -40,6 +40,15 @@ test('Sample PR #284 genuine LCS diffs match exact +86 additions and -24 deletio
 
   assert.equal(totalAdditions, 86);
   assert.equal(totalDeletions, 24);
+});
+
+test('generateUnifiedPatch generates valid git unified diff patch format', () => {
+  const patch = generateUnifiedPatch(SAMPLE_PULL_REQUEST.files);
+  assert.ok(patch.includes('--- a/src/middleware/auth.js'));
+  assert.ok(patch.includes('+++ b/src/middleware/auth.js'));
+  assert.ok(patch.includes('@@ -'));
+  assert.ok(patch.includes('extractBearerToken'));
+  assert.ok(patch.includes('legacyKey'));
 });
 
 test('normalizeAndValidatePath rejects path traversal and absolute paths', () => {

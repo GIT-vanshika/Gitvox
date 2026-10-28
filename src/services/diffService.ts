@@ -210,3 +210,26 @@ function buildDiffHunks(unifiedLines: DiffLine[], filePath: string): DiffHunk[] 
 
   return hunks;
 }
+
+
+/**
+ * Generates standard unified diff patch content for git-compatible patch export.
+ */
+export function generateUnifiedPatch(
+  files: { path: string; baseContent: string; proposedContent: string }[]
+): string {
+  return files
+    .map((file) => {
+      const diff = computeFileDiff(file.baseContent, file.proposedContent, file.path);
+      let patch = `--- a/${file.path}\n+++ b/${file.path}\n`;
+      for (const hunk of diff.hunks) {
+        patch += `${hunk.header}\n`;
+        for (const line of hunk.lines) {
+          const prefix = line.type === 'added' ? '+' : line.type === 'deleted' ? '-' : ' ';
+          patch += `${prefix}${line.content}\n`;
+        }
+      }
+      return patch;
+    })
+    .join('\n');
+}

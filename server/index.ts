@@ -161,7 +161,7 @@ app.post('/api/assistant/explain', async (req, res) => {
   }
 });
 
-app.post('/api/assistant/fix', async (req, res) => {
+app.post(['/api/fix', '/api/assistant/fix'], async (req, res) => {
   try {
     const { applyVoiceFix } = await import('./api/fix');
     const filePath = typeof req.body?.filePath === 'string' ? req.body.filePath : 'src/middleware/auth.js';
