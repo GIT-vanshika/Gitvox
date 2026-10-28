@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createSpeechRecognitionSession,
-  extractWakeWord,
   type SpeechRecognitionErrorInfo,
   type SpeechRecognitionErrorEventLike,
   type SpeechRecognitionEventLike,
@@ -56,7 +55,6 @@ interface TestHarness {
   statuses: SpeechRecognitionStatus[];
   transcripts: Array<{ transcript: string; isFinal: boolean }>;
   finals: string[];
-  wakeDetections: string[];
   errors: SpeechRecognitionErrorInfo[];
   recognitions: FakeRecognition[];
   latest: () => FakeRecognition;
@@ -67,7 +65,6 @@ function createHarness(): TestHarness {
   const statuses: SpeechRecognitionStatus[] = [];
   const transcripts: Array<{ transcript: string; isFinal: boolean }> = [];
   const finals: string[] = [];
-  const wakeDetections: string[] = [];
   const errors: SpeechRecognitionErrorInfo[] = [];
   const recognitions: FakeRecognition[] = [];
   let currentTime = 10_000;
@@ -77,7 +74,6 @@ function createHarness(): TestHarness {
     onStatus: (status) => statuses.push(status),
     onTranscript: (payload) => transcripts.push(payload),
     onFinalTranscript: (text) => finals.push(text),
-    onWakeWordDetected: (after) => wakeDetections.push(after || ''),
     onError: (err) => errors.push(err),
     recognitionFactory: () => {
       const rec = new FakeRecognition();
@@ -92,7 +88,6 @@ function createHarness(): TestHarness {
     statuses,
     transcripts,
     finals,
-    wakeDetections,
     errors,
     recognitions,
     latest: () => recognitions[recognitions.length - 1],
@@ -101,36 +96,6 @@ function createHarness(): TestHarness {
     },
   };
 }
-
-test('extractWakeWord recognizes "Hey Gitvox" and natural variations', () => {
-  const variations = [
-    'Hey Gitvox',
-    'hey gitvox',
-    'Hey Gitvox explain the PR',
-    'hey git vox',
-    'Okay Gitvox',
-    'ok gitvox',
-    'hi gitvox',
-    'hello gitvox check for bugs',
-    'gitvox summarize this file',
-  ];
-
-  for (const phrase of variations) {
-    const result = extractWakeWord(phrase);
-    assert.equal(result.detected, true, `Failed for phrase: ${phrase}`);
-  }
-
-  const negativeCases = [
-    'hello how are you',
-    'explain this pull request',
-    'git commit -m',
-  ];
-
-  for (const phrase of negativeCases) {
-    const result = extractWakeWord(phrase);
-    assert.equal(result.detected, false, `False positive for: ${phrase}`);
-  }
-});
 
 test('unsupported browsers report unsupported and never listen', () => {
   const statuses: SpeechRecognitionStatus[] = [];

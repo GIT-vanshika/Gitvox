@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HomePage } from './pages/HomePage';
 import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
@@ -22,11 +22,6 @@ import { explainAssistantWithModel, toModelErrorInfo } from './services/modelSer
 import {
   type VoiceRequestResult,
 } from './services/voiceAssistant';
-import {
-  createSpeechRecognitionSession,
-  isSpeechRecognitionSupported,
-  type SpeechRecognitionSession,
-} from './services/speechRecognition';
 import {
   AIExplanation,
   CodeFunction,
@@ -72,83 +67,9 @@ export function App() {
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [lastCommandResult, setLastCommandResult] = useState<CommandResult | null>(null);
 
-  // Background wake word detection listener
-  const wakeSessionRef = useRef<SpeechRecognitionSession | null>(null);
-  const [wakeListeningActive, setWakeListeningActive] = useState(false);
-  const userInteractedRef = useRef(false);
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [currentRoute]);
-
-  // Start wake listener
-  const startWakeListener = () => {
-    if (!isSpeechRecognitionSupported() || wakeSessionRef.current) return;
-
-    try {
-      const session = createSpeechRecognitionSession({
-        continuous: true,
-        onStatus: (status) => {
-          if (status === 'listening') {
-            setWakeListeningActive(true);
-          } else if (status === 'idle' || status === 'error' || status === 'permission-denied') {
-            setWakeListeningActive(false);
-          }
-        },
-        onWakeWordDetected: (_commandAfter) => {
-          // Wake phrase "Hey Gitvox" detected! Open assistant and trigger listening
-          openAssistant(true);
-        },
-        onError: (_err) => {
-          setWakeListeningActive(false);
-        },
-      });
-
-      session.start();
-      wakeSessionRef.current = session;
-    } catch {
-      setWakeListeningActive(false);
-    }
-  };
-
-  const stopWakeListener = () => {
-    if (wakeSessionRef.current) {
-      wakeSessionRef.current.dispose();
-      wakeSessionRef.current = null;
-      setWakeListeningActive(false);
-    }
-  };
-
-  // Listen for user interaction to grant/activate speech recognition permission
-  useEffect(() => {
-    const handleFirstUserGesture = () => {
-      userInteractedRef.current = true;
-      if (!assistantOpen) {
-        startWakeListener();
-      }
-    };
-
-    window.addEventListener('click', handleFirstUserGesture, { passive: true });
-    window.addEventListener('keydown', handleFirstUserGesture, { passive: true });
-
-    // Also attempt immediate start
-    startWakeListener();
-
-    return () => {
-      window.removeEventListener('click', handleFirstUserGesture);
-      window.removeEventListener('keydown', handleFirstUserGesture);
-      stopWakeListener();
-    };
-  }, []);
-
-  // When drawer opens, suspend background wake listening; resume when drawer closes
-  useEffect(() => {
-    if (assistantOpen) {
-      stopWakeListener();
-    } else if (userInteractedRef.current) {
-      startWakeListener();
-    }
-  }, [assistantOpen]);
 
   const activeProjectFile = useMemo(() => {
     return (
@@ -262,10 +183,9 @@ export function App() {
 
   /**
    * Opens the assistant drawer. The floating microphone requests an automatic
-   * listening session; page-level text buttons open the drawer idle.
+   * listening session right away; page-level text buttons open the drawer idle.
    */
   const openAssistant = (autoStart = false) => {
-    stopWakeListener();
     setAssistantAutoStart(autoStart);
     setAssistantOpen(true);
   };
@@ -478,11 +398,8 @@ export function App() {
             ? 'processing'
             : systemStatus === 'Failed'
             ? 'error'
-            : wakeListeningActive
-            ? 'wake-listening'
             : 'idle'
         }
-        wakeWordEnabled={isSpeechRecognitionSupported()}
       />
     </div>
   );
