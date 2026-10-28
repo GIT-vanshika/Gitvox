@@ -58,7 +58,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   });
 
   const [cursorPosition, setCursorPosition] = useState({ line: 9, col: 24 });
-  const [liveTranscript, setLiveTranscript] = useState('“Check if tokenService handles expired tokens”');
 
   const editorRef = useRef<any>(null);
   const initialContentsRef = useRef<Record<string, string>>({});
@@ -117,13 +116,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
     editor.onDidChangeCursorPosition((e) => {
       setCursorPosition({ line: e.position.lineNumber, col: e.position.column });
     });
-  };
-
-  const handleQuickPrompt = (prompt: string) => {
-    setLiveTranscript(`“${prompt}”`);
-    if (onOpenChat) {
-      onOpenChat();
-    }
   };
 
   // Group files into folder hierarchy for tree
@@ -490,75 +482,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     tabSize: 2,
                   }}
                 />
-              </div>
-
-              {/* DOCKED / FLOATING VOICE COPILOT PILL (CENTER BOTTOM) */}
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-full max-w-2xl px-space-md pointer-events-none">
-                <div className="pointer-events-auto bg-surface-container-lowest/95 backdrop-blur-2xl rounded-2xl p-space-sm shadow-[0_16px_40px_rgba(0,0,0,0.7)] border border-surface-container-high/80 flex flex-col gap-2">
-                  {/* Top Row: Voice Bar & Active Live Transcript */}
-                  <div className="flex items-center justify-between gap-space-md px-space-sm">
-                    {/* Pulsing Mic Visualizer */}
-                    <div className="flex items-center gap-space-sm">
-                      <div className="w-9 h-9 rounded-full bg-surface-container-high border border-primary/30 flex items-center justify-center relative flex-shrink-0">
-                        <span className="material-symbols-outlined text-[18px] text-primary">mic</span>
-                        <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping"></span>
-                      </div>
-                      {/* Waveform Bars */}
-                      <div className="flex items-center gap-1 h-5">
-                        <span className="w-1 bg-secondary rounded-full h-2 animate-pulse"></span>
-                        <span className="w-1 bg-primary rounded-full h-4 animate-bounce"></span>
-                        <span className="w-1 bg-secondary rounded-full h-5 animate-pulse"></span>
-                        <span className="w-1 bg-primary rounded-full h-3"></span>
-                        <span className="w-1 bg-secondary rounded-full h-4 animate-bounce"></span>
-                        <span className="w-1 bg-primary rounded-full h-2"></span>
-                      </div>
-                    </div>
-
-                    {/* Active Transcribed Speech Query */}
-                    <div className="flex-1 truncate">
-                      <span className="font-telemetry-tag text-[10px] text-outline uppercase block tracking-wider font-semibold">
-                        LIVE TRANSCRIPT
-                      </span>
-                      <span className="font-voice-transcript text-voice-transcript text-on-surface font-medium truncate block">
-                        {liveTranscript}
-                      </span>
-                    </div>
-
-                    {/* Spacebar Shortcut Cue */}
-                    <div className="hidden sm:flex items-center gap-1.5 px-space-sm py-1 rounded bg-surface-container font-telemetry-tag text-telemetry-tag text-on-surface-variant flex-shrink-0 border border-surface-container-high">
-                      <span className="material-symbols-outlined text-[14px]">space_bar</span>
-                      <span>Hold Space to talk</span>
-                    </div>
-                  </div>
-
-                  {/* Quick Command Suggestions Pills */}
-                  <div className="flex items-center gap-space-xs px-space-sm overflow-x-auto pb-0.5">
-                    <span className="font-telemetry-tag text-[10px] text-outline uppercase whitespace-nowrap font-semibold">
-                      QUICK PROMPT:
-                    </span>
-                    <button
-                      onClick={() => handleQuickPrompt('Add expiry validation to tokenService')}
-                      className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-variant text-on-surface text-[11px] font-telemetry-tag whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer border border-surface-container-high"
-                      type="button"
-                    >
-                      <span className="text-secondary">#</span> Add expiry validation
-                    </button>
-                    <button
-                      onClick={() => handleQuickPrompt('Generate unit test suite for auth.js')}
-                      className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-variant text-on-surface text-[11px] font-telemetry-tag whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer border border-surface-container-high"
-                      type="button"
-                    >
-                      <span className="text-primary">#</span> Generate test case
-                    </button>
-                    <button
-                      onClick={() => handleQuickPrompt('Refactor to bearer-guard middleware')}
-                      className="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-variant text-on-surface text-[11px] font-telemetry-tag whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer border border-surface-container-high"
-                      type="button"
-                    >
-                      <span className="text-accent-pink">#</span> Refactor to bearer-guard
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
 
