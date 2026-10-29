@@ -18,22 +18,36 @@ var ModelError = class extends Error {
     this.retryable = retryable;
   }
 };
+function normalizeKey(k) {
+  return k.toLowerCase().replace(/[\s_\-.]+/g, "");
+}
 function readEnv(name) {
   const direct = process.env[name];
   if (direct && direct.trim().length > 0) return direct.trim();
-  const lower = name.toLowerCase();
+  const targetNormalized = normalizeKey(name);
   for (const [key, value] of Object.entries(process.env)) {
-    if (key.toLowerCase() === lower && value && value.trim().length > 0) {
+    if (normalizeKey(key) === targetNormalized && value && value.trim().length > 0) {
       return value.trim();
     }
   }
   return void 0;
 }
 function getModelConfig() {
-  const geminiKey = readEnv("GEMINI_API_KEY");
+  let geminiKey = readEnv("GEMINI_API_KEY");
+  if (!geminiKey) {
+    for (const [key, val] of Object.entries(process.env)) {
+      const norm = normalizeKey(key);
+      if (norm.includes("gemini") && (norm.includes("key") || norm.includes("token") || norm.includes("secret"))) {
+        if (val && val.trim().length > 0) {
+          geminiKey = val.trim();
+          break;
+        }
+      }
+    }
+  }
   const genericKey = readEnv("MODEL_API_KEY");
   const apiKey = geminiKey || genericKey || null;
-  const isGemini = Boolean(geminiKey) || Boolean(apiKey && apiKey.startsWith("AIzaSy")) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini");
+  const isGemini = Boolean(geminiKey) || Boolean(apiKey && (apiKey.startsWith("AIzaSy") || apiKey.startsWith("AQ."))) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini");
   let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
   let defaultModelName = DEFAULT_MODEL_NAME;
   if (isGemini) {
