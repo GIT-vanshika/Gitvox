@@ -344,19 +344,21 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
             </div>
 
             {/* Acoustic Waveform Stream Divider */}
-            <div className="w-full h-8 flex items-center justify-between gap-1 overflow-hidden px-space-xs opacity-60">
-              <div className="h-[2px] flex-1 bg-surface-container-high"></div>
-              <div className="flex items-center gap-1 px-space-sm">
-                <span className="w-1 h-3 rounded-full bg-tertiary/40"></span>
-                <span className="w-1 h-5 rounded-full bg-tertiary/70"></span>
-                <span className="w-1 h-2 rounded-full bg-tertiary/30"></span>
-                <span className="w-1 h-7 rounded-full bg-secondary"></span>
-                <span className="w-1 h-4 rounded-full bg-tertiary/80"></span>
-                <span className="w-1 h-2 rounded-full bg-tertiary/40"></span>
-                <span className="w-1 h-6 rounded-full bg-primary"></span>
-                <span className="w-1 h-3 rounded-full bg-tertiary/40"></span>
+            <div className="w-full h-8 flex items-center justify-between gap-2 overflow-hidden px-space-xs my-space-xs">
+              <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-surface-container-highest to-surface-container-highest opacity-70"></div>
+              <div className="flex items-center gap-1.5 px-space-md py-1">
+                <span className="w-1 h-2.5 rounded-full bg-cyan-400/50"></span>
+                <span className="w-1 h-4 rounded-full bg-cyan-400/80"></span>
+                <span className="w-1 h-3 rounded-full bg-cyan-300"></span>
+                <span className="w-1 h-7 rounded-full bg-violet-400"></span>
+                <span className="w-1 h-8 rounded-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]"></span>
+                <span className="w-1 h-5 rounded-full bg-violet-400"></span>
+                <span className="w-1 h-7 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                <span className="w-1 h-6 rounded-full bg-amber-500"></span>
+                <span className="w-1 h-4 rounded-full bg-amber-400/80"></span>
+                <span className="w-1 h-2.5 rounded-full bg-amber-400/50"></span>
               </div>
-              <div className="h-[2px] flex-1 bg-surface-container-high"></div>
+              <div className="h-[2px] flex-1 bg-gradient-to-l from-transparent via-surface-container-highest to-surface-container-highest opacity-70"></div>
             </div>
 
             {/* Primary Source Ingestion Grid (3 Main Cards) */}
