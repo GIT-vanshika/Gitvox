@@ -396,7 +396,10 @@ export function App() {
    * If the server endpoint is unreachable (e.g. static Vercel deployment), it
    * gracefully falls back to the in-memory grounded AI explanation engine!
    */
-  const handleVoiceRequest = async (transcript: string): Promise<VoiceRequestResult> => {
+  const handleVoiceRequest = async (
+    transcript: string,
+    signal?: AbortSignal
+  ): Promise<VoiceRequestResult> => {
     const match = interpretVoiceTranscript(transcript);
 
     if (match.kind === 'clarify') {
@@ -422,10 +425,14 @@ export function App() {
 
     setSystemStatus('Analyzing');
     try {
-      const explanation = await explainAssistantWithModel(built.request);
+      const explanation = await explainAssistantWithModel(built.request, signal);
       setSystemStatus('Completed');
       return { kind: 'answer', title: built.title, explanation };
     } catch (liveError) {
+      if (signal?.aborted) {
+        setSystemStatus('Idle');
+        throw liveError;
+      }
       console.warn('[handleVoiceRequest] Live model call failed, falling back to grounded local engine:', liveError);
       try {
         const localExplanation = generateGroundedLocalExplanation(transcript);

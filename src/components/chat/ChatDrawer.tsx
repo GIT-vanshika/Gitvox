@@ -14,7 +14,7 @@ interface ChatDrawerProps {
   initialMode?: 'voice' | 'chat';
   onClose: () => void;
   onAutoStartHandled: () => void;
-  onVoiceRequest: (transcript: string) => Promise<VoiceRequestResult>;
+  onVoiceRequest: (transcript: string, signal?: AbortSignal) => Promise<VoiceRequestResult>;
 }
 
 type VoiceStatus = 'idle' | 'listening' | 'unsupported' | 'error';
@@ -81,6 +81,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const autoStartRef = useRef(autoStart);
   const inFlightRef = useRef(false);
   const requestGenerationRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const lastHandledRef = useRef({ text: '', at: 0 });
   const messageIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -116,6 +117,37 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     setMessages((current) => [...current, { ...message, id: nextMessageId() }]);
   };
 
+  const handleCancel = () => {
+    // 1. Invalidate in-flight response processing
+    requestGenerationRef.current += 1;
+    inFlightRef.current = false;
+
+    // 2. Abort active network request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // 3. Stop and dispose speech session without sending any transcript
+    if (voiceStatus === 'listening') {
+      sessionRef.current?.dispose();
+      sessionRef.current = null;
+      setVoiceStatus('idle');
+    }
+
+    const wasThinking = isThinking;
+    setIsThinking(false);
+    setVoiceError('');
+
+    appendMessage({
+      role: 'assistant',
+      variant: 'clarification',
+      text: wasThinking
+        ? 'Request cancelled. You can ask a new question or speak again whenever you are ready.'
+        : 'Voice input cancelled.',
+    });
+  };
+
   const runRequest = async (transcript: string) => {
     const text = transcript.trim();
     if (!text || inFlightRef.current) return;
@@ -131,15 +163,22 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
     lastHandledRef.current = { text: key, at: now };
     inFlightRef.current = true;
+    requestGenerationRef.current += 1;
     const generation = requestGenerationRef.current;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     appendMessage({ role: 'user', text });
     setIsThinking(true);
     setVoiceError('');
 
     try {
-      const result = await requestHandlerRef.current(text);
-      if (generation !== requestGenerationRef.current) return;
+      const result = await requestHandlerRef.current(text, controller.signal);
+      if (generation !== requestGenerationRef.current || controller.signal.aborted) return;
 
       if (result.kind === 'answer') {
         appendMessage({
@@ -162,7 +201,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         });
       }
     } catch (error) {
-      if (generation !== requestGenerationRef.current) return;
+      if (generation !== requestGenerationRef.current || controller.signal.aborted) return;
       const message =
         error instanceof Error ? error.message : 'I could not generate an explanation. Please try again.';
       appendMessage({
@@ -175,6 +214,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       if (generation === requestGenerationRef.current) {
         setIsThinking(false);
         inFlightRef.current = false;
+        abortControllerRef.current = null;
       }
     }
   };
@@ -220,6 +260,10 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     if (!isOpen) {
       requestGenerationRef.current += 1;
       inFlightRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       sessionRef.current?.dispose();
       sessionRef.current = null;
       setVoiceStatus('idle');
@@ -251,6 +295,10 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   useEffect(() => {
     return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       sessionRef.current?.dispose();
     };
   }, []);
@@ -264,8 +312,13 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   };
 
   const handleMicClick = () => {
+    if (isThinking) {
+      handleCancel();
+      return;
+    }
     if (voiceStatus === 'listening') {
-      sessionRef.current?.stop();
+      sessionRef.current?.dispose();
+      sessionRef.current = null;
       setVoiceStatus('idle');
       return;
     }
@@ -280,12 +333,17 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         if (e.repeat) return; // Ignore key repeat while holding
         // Ignore Escape within 1000ms of opening to allow smooth release from 3s hold
         if (Date.now() - openedAt < 1000) return;
+        if (isThinking || voiceStatus === 'listening') {
+          e.stopPropagation();
+          handleCancel();
+          return;
+        }
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isThinking, voiceStatus]);
 
   const handleRetry = (transcript: string) => {
     lastHandledRef.current = { text: '', at: 0 };
@@ -414,16 +472,28 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
             {isThinking && (
               <div className="flex justify-start">
-                <div className="inline-flex items-center gap-2 rounded-lg border border-line bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[12px] text-faint">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" aria-hidden="true" />
-                  Understanding your request…
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-[var(--bg-subtle)] px-3.5 py-2.5 text-[12px] shadow-sm">
+                  <div className="flex items-center gap-2 text-faint">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" aria-hidden="true" />
+                    <span>Understanding your request…</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="inline-flex items-center gap-1 rounded border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-colors cursor-pointer"
+                    title="Cancel request (Esc)"
+                    aria-label="Cancel request"
+                  >
+                    <Square className="h-2.5 w-2.5 fill-current" aria-hidden="true" />
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Voice-First Mode: ONLY the microphone control, no text input bar */}
+        {/* Voice-First Mode: Microphone control + Cancel option */}
         {mode === 'voice' ? (
           <div className="border-t border-line bg-[var(--bg-subtle)] px-4 py-4">
             {voiceError && (
@@ -435,18 +505,32 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
               <button
                 ref={micRef}
                 type="button"
-                onClick={handleMicClick}
-                disabled={!isSupported || isThinking}
-                aria-label={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
-                title={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
+                onClick={isThinking ? handleCancel : handleMicClick}
+                disabled={!isSupported && !isThinking}
+                aria-label={
+                  isThinking
+                    ? 'Cancel request'
+                    : voiceStatus === 'listening'
+                    ? 'Cancel listening'
+                    : 'Start voice input'
+                }
+                title={
+                  isThinking
+                    ? 'Cancel request (Esc)'
+                    : voiceStatus === 'listening'
+                    ? 'Cancel listening'
+                    : 'Start voice input'
+                }
                 className={`inline-flex h-14 w-14 items-center justify-center rounded-full border transition-all cursor-pointer ${
-                  voiceStatus === 'listening'
-                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416] scale-105 shadow-lg'
+                  isThinking
+                    ? 'border-red-500/50 bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:scale-105'
+                    : voiceStatus === 'listening'
+                    ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416] scale-105 shadow-lg animate-pulse'
                     : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)] hover:scale-105'
                 }`}
               >
-                {voiceStatus === 'listening' ? (
-                  <Square className="h-6 w-6" aria-hidden="true" />
+                {isThinking || voiceStatus === 'listening' ? (
+                  <Square className="h-6 w-6 fill-current" aria-hidden="true" />
                 ) : (
                   <Mic className="h-6 w-6" aria-hidden="true" />
                 )}
@@ -457,11 +541,22 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                     Listening… speak your question
                   </span>
                 ) : isThinking ? (
-                  <span className="text-faint">Processing with model…</span>
+                  <span className="text-amber-400 font-medium">Processing your request…</span>
                 ) : (
                   <span className="text-faint">Tap microphone to speak</span>
                 )}
               </p>
+              {(isThinking || voiceStatus === 'listening') && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1 text-[11px] font-medium text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-all cursor-pointer shadow-sm"
+                  title="Cancel (Esc)"
+                >
+                  <Square className="h-2.5 w-2.5 fill-current" aria-hidden="true" />
+                  Cancel {voiceStatus === 'listening' ? 'input' : 'request'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setMode('chat')}
@@ -472,7 +567,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
             </div>
           </div>
         ) : (
-          /* Text Chat Mode: Input text box + Send button + Microphone */
+          /* Text Chat Mode: Input text box + Send / Cancel button + Microphone */
           <div className="border-t border-line bg-[var(--bg-subtle)] px-3 py-3">
             {voiceError && (
               <p className="mb-2 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--warning)]">
@@ -487,18 +582,32 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                 <button
                   ref={micRef}
                   type="button"
-                  onClick={handleMicClick}
-                  disabled={!isSupported || isThinking}
-                  aria-label={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
-                  title={voiceStatus === 'listening' ? 'Stop listening' : 'Start voice input'}
+                  onClick={isThinking ? handleCancel : handleMicClick}
+                  disabled={!isSupported && !isThinking}
+                  aria-label={
+                    isThinking
+                      ? 'Cancel request'
+                      : voiceStatus === 'listening'
+                      ? 'Cancel listening'
+                      : 'Start voice input'
+                  }
+                  title={
+                    isThinking
+                      ? 'Cancel request (Esc)'
+                      : voiceStatus === 'listening'
+                      ? 'Cancel listening'
+                      : 'Start voice input'
+                  }
                   className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
-                    voiceStatus === 'listening'
+                    isThinking
+                      ? 'border-red-500/50 bg-red-500/15 text-red-400 hover:bg-red-500/25'
+                      : voiceStatus === 'listening'
                       ? 'border-[var(--accent)] bg-[var(--accent)] text-[#111416]'
                       : 'border-line bg-page text-accent hover:border-[var(--accent)] hover:bg-[var(--bg-muted)]'
                   }`}
                 >
-                  {voiceStatus === 'listening' ? (
-                    <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                  {isThinking || voiceStatus === 'listening' ? (
+                    <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
                   ) : (
                     <Mic className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -510,24 +619,49 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                   value={textInput}
                   onChange={(event) => setTextInput(event.target.value)}
                   placeholder={
-                    voiceStatus === 'listening'
+                    isThinking
+                      ? 'Processing… click Cancel to stop'
+                      : voiceStatus === 'listening'
                       ? 'Listening…'
                       : 'Ask about this PR, a file, or lines 20–35…'
                   }
+                  disabled={isThinking}
                   className="field min-w-0 flex-1"
                 />
-                <button
-                  type="submit"
-                  aria-label="Send message"
-                  disabled={isThinking || !textInput.trim()}
-                  className="btn btn-primary btn-icon shrink-0"
-                >
-                  <Send className="h-4 w-4" aria-hidden="true" />
-                </button>
+                {isThinking ? (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    aria-label="Cancel request"
+                    title="Cancel request (Esc)"
+                    className="btn btn-outline border-red-500/40 text-red-400 hover:bg-red-500/20 btn-sm shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                    <span>Cancel</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    aria-label="Send message"
+                    disabled={!textInput.trim()}
+                    className="btn btn-primary btn-icon shrink-0"
+                  >
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
               </div>
             </form>
             {voiceStatus === 'listening' && (
-              <p className="mt-2 text-[10px] font-medium text-accent">Listening…</p>
+              <div className="mt-2 flex items-center justify-between text-[10px]">
+                <span className="font-medium text-accent">Listening…</span>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="text-red-400 hover:text-red-300 font-medium underline cursor-pointer"
+                >
+                  Cancel listening
+                </button>
+              </div>
             )}
             <div className="mt-2 flex items-center justify-between text-[10px] text-faint">
               {!isSupported ? (
