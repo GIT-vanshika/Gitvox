@@ -73,6 +73,8 @@ export function App() {
   const escapeHoldStartRef = useRef<number | null>(null);
   const escapeTimerRef = useRef<any>(null);
   const escapeIntervalRef = useRef<any>(null);
+  const activatedFromEscapeHoldRef = useRef<boolean>(false);
+  const lastEscapeActivationTimeRef = useRef<number>(0);
 
   const playMicActivationChime = () => {
     try {
@@ -257,6 +259,8 @@ export function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (e.repeat) return; // Prevent OS keyrepeat from resetting timer
+        // Don't restart hold if we just activated the assistant via hold within the last 1500ms
+        if (Date.now() - lastEscapeActivationTimeRef.current < 1500) return;
 
         const startTime = Date.now();
         escapeHoldStartRef.current = startTime;
@@ -274,6 +278,8 @@ export function App() {
           if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
           setEscapeHoldProgress(null);
           escapeHoldStartRef.current = null;
+          activatedFromEscapeHoldRef.current = true;
+          lastEscapeActivationTimeRef.current = Date.now();
           playMicActivationChime();
           openVoiceAssistant(true);
         }, 3000);
@@ -282,15 +288,24 @@ export function App() {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        const heldFor = escapeHoldStartRef.current ? Date.now() - escapeHoldStartRef.current : 0;
-
         if (escapeTimerRef.current) clearTimeout(escapeTimerRef.current);
         if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
         setEscapeHoldProgress(null);
+
+        // If this keyup was from the 3-second hold that just activated the mic, do NOT close the drawer!
+        if (activatedFromEscapeHoldRef.current) {
+          setTimeout(() => {
+            activatedFromEscapeHoldRef.current = false;
+          }, 800);
+          escapeHoldStartRef.current = null;
+          return;
+        }
+
+        const heldFor = escapeHoldStartRef.current ? Date.now() - escapeHoldStartRef.current : 0;
         escapeHoldStartRef.current = null;
 
-        // Quick tap closes assistant if open
-        if (heldFor < 500 && assistantOpen) {
+        // Normal quick tap (<400ms) closes assistant if open
+        if (heldFor > 0 && heldFor < 400 && assistantOpen) {
           setAssistantOpen(false);
         }
       }

@@ -274,8 +274,12 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    const openedAt = Date.now();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (e.repeat) return; // Ignore key repeat while holding
+        // Ignore Escape within 1000ms of opening to allow smooth release from 3s hold
+        if (Date.now() - openedAt < 1000) return;
         onClose();
       }
     };
