@@ -14,7 +14,14 @@ import type {
  */
 
 export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
-export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
+export const DEFAULT_MODEL_NAME = 'meta-llama/llama-3.3-70b-instruct:free';
+
+export const OPENROUTER_MODEL_CASCADE = [
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'qwen/qwen-2.5-coder-32b-instruct:free',
+  'google/gemini-2.0-flash-exp:free',
+  'cohere/north-mini-code:free',
+];
 
 export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 export const GEMINI_DEFAULT_MODEL = 'gemini-3.1-flash-lite';
@@ -78,6 +85,11 @@ function readEnv(name: string): string | undefined {
 }
 
 export function getModelConfig(): ModelConfig {
+  const openRouterKey =
+    readEnv('OPENROUTER_API_KEY') ||
+    readEnv('MODEL_API_KEY') ||
+    (process.env.MODEL_API_KEY?.startsWith('sk-or-') ? process.env.MODEL_API_KEY : undefined);
+
   let geminiKey = readEnv('GEMINI_API_KEY');
 
   // Ultra-forgiving search: check if any env variable contains 'gemini' and 'key'/'token'
@@ -94,15 +106,18 @@ export function getModelConfig(): ModelConfig {
     }
   }
 
-  const genericKey = readEnv('MODEL_API_KEY');
-  const apiKey = geminiKey || genericKey || null;
+  // If explicit OpenRouter key or OpenRouter URL is set, prioritize OpenRouter!
+  const hasOpenRouterKey = Boolean(openRouterKey && openRouterKey.startsWith('sk-or-'));
+  const explicitOpenRouterUrl = (readEnv('MODEL_BASE_URL') || '').includes('openrouter.ai');
 
-  // Auto-detect if using Google Gemini (by explicit key name, key prefix AIzaSy or AQ., or explicit config)
   const isGemini =
-    Boolean(geminiKey) ||
-    Boolean(apiKey && (apiKey.startsWith('AIzaSy') || apiKey.startsWith('AQ.'))) ||
-    (readEnv('MODEL_BASE_URL') || '').includes('generativelanguage.googleapis.com') ||
-    (readEnv('MODEL_NAME') || '').toLowerCase().startsWith('gemini');
+    !hasOpenRouterKey &&
+    !explicitOpenRouterUrl &&
+    (Boolean(geminiKey) ||
+      (readEnv('MODEL_BASE_URL') || '').includes('generativelanguage.googleapis.com') ||
+      (readEnv('MODEL_NAME') || '').toLowerCase().startsWith('gemini'));
+
+  const apiKey = hasOpenRouterKey ? openRouterKey : (geminiKey || openRouterKey || null);
 
   let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
   let defaultModelName = DEFAULT_MODEL_NAME;
@@ -547,10 +562,9 @@ export async function callModelChat(
       signal: controller.signal,
     });
 
-    // Auto-fallback cascade across available Gemini models if one hits daily quota (429), overload (503), or server errors (500/502/504/404)
+    // Auto-fallback cascade across available models if one hits daily quota (429), overload (503), or server errors (500/502/504/404)
     if (
       !response.ok &&
-      config.baseUrl.includes('googleapis.com') &&
       (response.status === 429 ||
         response.status === 503 ||
         response.status === 500 ||
@@ -558,7 +572,9 @@ export async function callModelChat(
         response.status === 504 ||
         response.status === 404)
     ) {
-      const remainingModels = GEMINI_MODEL_CASCADE.filter((m) => m !== activeModel);
+      const isGeminiProvider = config.baseUrl.includes('googleapis.com');
+      const cascadeList = isGeminiProvider ? GEMINI_MODEL_CASCADE : OPENROUTER_MODEL_CASCADE;
+      const remainingModels = cascadeList.filter((m) => m !== activeModel);
       for (const fallbackModel of remainingModels) {
         console.warn(`[model] ${activeModel} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
         try {

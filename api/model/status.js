@@ -1,6 +1,6 @@
 // server/modelClient.ts
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
-var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
+var DEFAULT_MODEL_NAME = "meta-llama/llama-3.3-70b-instruct:free";
 var GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 var GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite";
 function normalizeKey(k) {
@@ -18,6 +18,7 @@ function readEnv(name) {
   return void 0;
 }
 function getModelConfig() {
+  const openRouterKey = readEnv("OPENROUTER_API_KEY") || readEnv("MODEL_API_KEY") || (process.env.MODEL_API_KEY?.startsWith("sk-or-") ? process.env.MODEL_API_KEY : void 0);
   let geminiKey = readEnv("GEMINI_API_KEY");
   if (!geminiKey) {
     for (const [key, val] of Object.entries(process.env)) {
@@ -30,9 +31,10 @@ function getModelConfig() {
       }
     }
   }
-  const genericKey = readEnv("MODEL_API_KEY");
-  const apiKey = geminiKey || genericKey || null;
-  const isGemini = Boolean(geminiKey) || Boolean(apiKey && (apiKey.startsWith("AIzaSy") || apiKey.startsWith("AQ."))) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini");
+  const hasOpenRouterKey = Boolean(openRouterKey && openRouterKey.startsWith("sk-or-"));
+  const explicitOpenRouterUrl = (readEnv("MODEL_BASE_URL") || "").includes("openrouter.ai");
+  const isGemini = !hasOpenRouterKey && !explicitOpenRouterUrl && (Boolean(geminiKey) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini"));
+  const apiKey = hasOpenRouterKey ? openRouterKey : geminiKey || openRouterKey || null;
   let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
   let defaultModelName = DEFAULT_MODEL_NAME;
   if (isGemini) {

@@ -1,6 +1,12 @@
 // server/modelClient.ts
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
-var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
+var DEFAULT_MODEL_NAME = "meta-llama/llama-3.3-70b-instruct:free";
+var OPENROUTER_MODEL_CASCADE = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "qwen/qwen-2.5-coder-32b-instruct:free",
+  "google/gemini-2.0-flash-exp:free",
+  "cohere/north-mini-code:free"
+];
 var GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 var GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite";
 var GEMINI_MODEL_CASCADE = [
@@ -39,6 +45,7 @@ function readEnv(name) {
   return void 0;
 }
 function getModelConfig() {
+  const openRouterKey = readEnv("OPENROUTER_API_KEY") || readEnv("MODEL_API_KEY") || (process.env.MODEL_API_KEY?.startsWith("sk-or-") ? process.env.MODEL_API_KEY : void 0);
   let geminiKey = readEnv("GEMINI_API_KEY");
   if (!geminiKey) {
     for (const [key, val] of Object.entries(process.env)) {
@@ -51,9 +58,10 @@ function getModelConfig() {
       }
     }
   }
-  const genericKey = readEnv("MODEL_API_KEY");
-  const apiKey = geminiKey || genericKey || null;
-  const isGemini = Boolean(geminiKey) || Boolean(apiKey && (apiKey.startsWith("AIzaSy") || apiKey.startsWith("AQ."))) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini");
+  const hasOpenRouterKey = Boolean(openRouterKey && openRouterKey.startsWith("sk-or-"));
+  const explicitOpenRouterUrl = (readEnv("MODEL_BASE_URL") || "").includes("openrouter.ai");
+  const isGemini = !hasOpenRouterKey && !explicitOpenRouterUrl && (Boolean(geminiKey) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini"));
+  const apiKey = hasOpenRouterKey ? openRouterKey : geminiKey || openRouterKey || null;
   let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
   let defaultModelName = DEFAULT_MODEL_NAME;
   if (isGemini) {
@@ -376,8 +384,10 @@ async function callModelChat(messages, config = getModelConfig(), options = {}) 
       }),
       signal: controller.signal
     });
-    if (!response.ok && config.baseUrl.includes("googleapis.com") && (response.status === 429 || response.status === 503 || response.status === 500 || response.status === 502 || response.status === 504 || response.status === 404)) {
-      const remainingModels = GEMINI_MODEL_CASCADE.filter((m) => m !== activeModel);
+    if (!response.ok && (response.status === 429 || response.status === 503 || response.status === 500 || response.status === 502 || response.status === 504 || response.status === 404)) {
+      const isGeminiProvider = config.baseUrl.includes("googleapis.com");
+      const cascadeList = isGeminiProvider ? GEMINI_MODEL_CASCADE : OPENROUTER_MODEL_CASCADE;
+      const remainingModels = cascadeList.filter((m) => m !== activeModel);
       for (const fallbackModel of remainingModels) {
         console.warn(`[model] ${activeModel} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
         try {

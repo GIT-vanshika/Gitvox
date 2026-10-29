@@ -185,9 +185,10 @@ test('getModelConfig auto-detects Gemini and falls back to OpenRouter correctly'
   delete process.env.MODEL_NAME;
   const orConfig = getModelConfig();
   assert.equal(orConfig.providerLabel, 'OpenRouter');
-  assert.equal(orConfig.model, 'cohere/north-mini-code:free');
+  assert.equal(orConfig.model, 'meta-llama/llama-3.3-70b-instruct:free');
 
   // Test with Gemini key
+  delete process.env.MODEL_API_KEY;
   process.env.GEMINI_API_KEY = 'AIzaSy-test-gemini-key';
   const geminiConfig = getModelConfig();
   assert.equal(geminiConfig.providerLabel, 'Google Gemini');
