@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HomePage } from './pages/HomePage';
 import { StartExploringPage } from './pages/StartExploringPage';
 import { ProjectWorkspacePage } from './pages/ProjectWorkspacePage';
@@ -67,6 +67,33 @@ export function App() {
   const [assistantMode, setAssistantMode] = useState<'voice' | 'chat'>('voice');
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [lastCommandResult, setLastCommandResult] = useState<CommandResult | null>(null);
+
+  // Escape key 3-second hold detection for hands-free microphone activation
+  const [escapeHoldProgress, setEscapeHoldProgress] = useState<number | null>(null);
+  const escapeHoldStartRef = useRef<number | null>(null);
+  const escapeTimerRef = useRef<any>(null);
+  const escapeIntervalRef = useRef<any>(null);
+
+  const playMicActivationChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch {
+      // Audio autoplay policy fallback
+    }
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -222,6 +249,62 @@ export function App() {
     setAssistantAutoStart(false);
     setAssistantOpen(true);
   };
+
+  /**
+   * Listen for 3-second hold on Escape key anywhere to automatically open microphone
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (e.repeat) return; // Prevent OS keyrepeat from resetting timer
+
+        const startTime = Date.now();
+        escapeHoldStartRef.current = startTime;
+        setEscapeHoldProgress(0);
+
+        if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
+        escapeIntervalRef.current = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const pct = Math.min(100, Math.round((elapsed / 3000) * 100));
+          setEscapeHoldProgress(pct);
+        }, 40);
+
+        if (escapeTimerRef.current) clearTimeout(escapeTimerRef.current);
+        escapeTimerRef.current = setTimeout(() => {
+          if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
+          setEscapeHoldProgress(null);
+          escapeHoldStartRef.current = null;
+          playMicActivationChime();
+          openVoiceAssistant(true);
+        }, 3000);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const heldFor = escapeHoldStartRef.current ? Date.now() - escapeHoldStartRef.current : 0;
+
+        if (escapeTimerRef.current) clearTimeout(escapeTimerRef.current);
+        if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
+        setEscapeHoldProgress(null);
+        escapeHoldStartRef.current = null;
+
+        // Quick tap closes assistant if open
+        if (heldFor < 500 && assistantOpen) {
+          setAssistantOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    window.addEventListener('keyup', handleKeyUp, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+      window.removeEventListener('keyup', handleKeyUp, true);
+      if (escapeTimerRef.current) clearTimeout(escapeTimerRef.current);
+      if (escapeIntervalRef.current) clearInterval(escapeIntervalRef.current);
+    };
+  }, [assistantOpen]);
 
   /**
    * Generates an in-memory grounded explanation fallback when backend model API is
@@ -439,6 +522,48 @@ export function App() {
             : 'idle'
         }
       />
+
+      {/* 3-Second Escape Key Hold Voice HUD Indicator */}
+      {escapeHoldProgress !== null && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[100] animate-fade-in pointer-events-none">
+          <div className="flex items-center gap-3.5 px-5 py-3 rounded-2xl bg-surface-container-high/95 border border-primary/40 shadow-[0_8px_32px_rgba(245,158,11,0.35)] backdrop-blur-xl text-on-surface">
+            <div className="relative w-9 h-9 flex items-center justify-center">
+              <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-surface-container-highest"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-primary transition-all duration-75"
+                  strokeDasharray={`${escapeHoldProgress}, 100`}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <span className="material-symbols-outlined text-[18px] text-primary absolute animate-pulse">mic</span>
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="font-telemetry-tag text-telemetry-tag text-primary font-bold uppercase tracking-wider">
+                  HOLDING ESCAPE TO TALK
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary font-code-block text-[10px] font-bold">
+                  {((3000 - (escapeHoldProgress / 100) * 3000) / 1000).toFixed(1)}s
+                </span>
+              </div>
+              <span className="text-[12px] text-on-surface-variant font-body-sm">
+                Release anytime to cancel • Hold to communicate immediately
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
