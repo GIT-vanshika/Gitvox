@@ -487,9 +487,10 @@ function actionInstruction(action) {
       ].join("\n");
     case "check-security":
       return [
-        "Perform a comprehensive security audit on the supplied code and diffs to identify every vulnerability, flaw, and risk.",
-        "Check for hardcoded secrets, injection flaws, timing attacks, authentication or authorization issues, and insecure defaults.",
-        "Specify the file, line range, and impact for each issue, followed by concrete remediation code.",
+        "Perform a defensive security audit and code quality review on the supplied code and diffs to verify secure coding standards.",
+        "Review for common coding oversights such as hardcoded secrets, injection flaws, timing attacks in comparisons, authentication or authorization checks, and insecure configuration defaults.",
+        "Assess whether the code introduces vulnerability risks or weaknesses into the codebase.",
+        "Explain your review findings constructively, specifying file paths and line numbers, and provide defensive remediation code to secure the application.",
         "Format cleanly in Markdown with ## headings and bullet points."
       ].join("\n");
     case "check-file-errors":
@@ -601,7 +602,7 @@ function formatFunctionContext(file, fn) {
 }
 function buildAssistantPrompt(input) {
   const system = [
-    "You are Gitvox, a senior software engineer, security researcher, and code reviewer.",
+    "You are Gitvox, a senior software engineer and code reviewer assisting developers with peer reviews and code quality.",
     "Answer ONLY from the supplied context. Never invent files, functions, dependencies, behavior, or risks.",
     "If the supplied context is insufficient, say so explicitly and explain what evidence is missing.",
     "Write a detailed, readable Markdown answer with ## headings, bullet lists, and short > blockquotes for code references.",

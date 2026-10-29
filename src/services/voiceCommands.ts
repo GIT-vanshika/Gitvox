@@ -82,7 +82,7 @@ const EXPLAIN_VERB_PATTERN =
 const ERROR_PATTERN =
   /\b(error|errors|bug|bugs|issue|issues|problem|problems|mistake|mistakes|break|broken|wrong|fault|faults|defect|defects)\b/;
 const SECURITY_PATTERN =
-  /\b(security|secure|vulnerability|vulnerabilities|vulnerable|threat|threats|harmful|malicious|injection|xss|csrf|exploit|exploits|attack|attacks|unsafe|insecure|hack|hacked|compromised|secret|secrets|hardcoded|credential|credentials|leak|leaks|dangerous)\b/;
+  /\b(security|secure|secured|safe|safety|vulnerability|vulnerabilities|vulnerable|threat|threats|harmful|malicious|injection|xss|csrf|exploit|exploits|attack|attacks|unsafe|insecure|hack|hacked|compromised|secret|secrets|hardcoded|credential|credentials|leak|leaks|dangerous)\b/;
 const CHECK_VERB_PATTERN =
   /\b(check|scan|analyze|analyse|review|audit|inspect|find|detect|identify|look for|search for|test for|verify|validate|assess|evaluate)\b/;
 
@@ -230,8 +230,8 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     return { kind: 'check-pr-errors', transcript, normalized };
   }
 
-  // ── Error/bug detection in file ──
-  if (ERROR_PATTERN.test(normalized) && FILE_PATTERN.test(normalized)) {
+  // ── Error/bug detection in file or code ──
+  if (ERROR_PATTERN.test(normalized) && (FILE_PATTERN.test(normalized) || /\b(code|script)\b/.test(normalized))) {
     return { kind: 'check-file-errors', transcript, normalized };
   }
 
@@ -261,13 +261,20 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     if (EXPLAIN_VERB_PATTERN.test(normalized)) {
       return { kind: 'explain-pr', transcript, normalized };
     }
-    return {
-      kind: 'clarify',
-      reason: 'pr-without-verb',
-      message: 'Did you want me to explain the pull request or summarize it?',
-      transcript,
-      normalized,
-    };
+    // Only ask for clarification if the transcript is strictly the bare noun "PR" or "the pull request"
+    const isBarePrOnly = /^(?:(?:the|this|current)\s+)?(?:pr|pull\s*request|pull\s*requests)$/.test(
+      normalized
+    );
+    if (isBarePrOnly) {
+      return {
+        kind: 'clarify',
+        reason: 'pr-without-verb',
+        message: 'Did you want me to explain the pull request or summarize it?',
+        transcript,
+        normalized,
+      };
+    }
+    // Full sentences or questions referencing PR fall through cleanly to conversational AI!
   }
 
   // ── Bare summarize (no PR mentioned, assume PR) ──
