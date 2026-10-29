@@ -17,7 +17,7 @@ export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
 export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
 
 export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
-export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash';
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 const MAX_FILE_CONTEXT_CHARS = 12_000;
 const MAX_HUNK_LINES = 400;
@@ -439,9 +439,12 @@ function mapProviderHttpError(status: number, providerMessage: string): ModelErr
     );
   }
   if (status === 429) {
+    const isQuota = providerMessage.toLowerCase().includes('quota') || providerMessage.toLowerCase().includes('exceeded');
     return new ModelError(
       'upstream_rate_limited',
-      'The model provider is rate limiting requests. Wait a moment and retry.',
+      isQuota
+        ? 'Gemini API free tier quota limit reached (20 requests/day). Please try again tomorrow, switch models, or use a new Gemini key.'
+        : 'The model provider is rate limiting requests. Wait a moment and retry.',
       429,
       true
     );
@@ -512,18 +515,20 @@ export async function callModelChat(
   const startedAt = Date.now();
 
   try {
-    const response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
+      ...(config.baseUrl.includes('openrouter.ai')
+        ? {
+            'HTTP-Referer': readEnv('MODEL_APP_URL') || 'http://localhost:3000',
+            'X-Title': readEnv('MODEL_APP_NAME') || 'Gitvox',
+          }
+        : {}),
+    };
+
+    let response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-        ...(config.baseUrl.includes('openrouter.ai')
-          ? {
-              'HTTP-Referer': readEnv('MODEL_APP_URL') || 'http://localhost:3000',
-              'X-Title': readEnv('MODEL_APP_NAME') || 'Gitvox',
-            }
-          : {}),
-      },
+      headers: requestHeaders,
       body: JSON.stringify({
         model: config.model,
         messages,
@@ -533,6 +538,35 @@ export async function callModelChat(
       }),
       signal: controller.signal,
     });
+
+    // Auto-fallback between Gemini Flash-Lite and Gemini Flash if one hits daily quota (429) or high demand (503)
+    if (!response.ok && config.baseUrl.includes('googleapis.com') && (response.status === 429 || response.status === 503)) {
+      const fallbackModel =
+        config.model === 'gemini-3.5-flash-lite'
+          ? 'gemini-3.5-flash'
+          : 'gemini-3.5-flash-lite';
+
+      console.warn(`[model] ${config.model} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
+      try {
+        const fallbackResponse = await fetchImpl(`${config.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: JSON.stringify({
+            model: fallbackModel,
+            messages,
+            temperature: 0.3,
+            max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
+            stream: false,
+          }),
+          signal: controller.signal,
+        });
+        if (fallbackResponse.ok) {
+          response = fallbackResponse;
+        }
+      } catch {
+        // Retain original response if fallback fails
+      }
+    }
 
     if (!response.ok) {
       throw mapProviderHttpError(response.status, await readProviderError(response));

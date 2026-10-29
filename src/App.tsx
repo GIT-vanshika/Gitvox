@@ -433,6 +433,15 @@ export function App() {
         setSystemStatus('Idle');
         throw liveError;
       }
+      const errorInfo = toModelErrorInfo(liveError);
+      if (errorInfo.code === 'upstream_rate_limited' || errorInfo.code === 'upstream_auth') {
+        setSystemStatus('Failed');
+        return {
+          kind: 'error',
+          message: errorInfo.message,
+          retryable: errorInfo.retryable,
+        };
+      }
       console.warn('[handleVoiceRequest] Live model call failed, falling back to grounded local engine:', liveError);
       try {
         const localExplanation = generateGroundedLocalExplanation(transcript);
