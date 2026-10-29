@@ -16,6 +16,9 @@ import type {
 export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
 export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
 
+export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
+export const GEMINI_DEFAULT_MODEL = 'gemini-1.5-flash';
+
 const MAX_FILE_CONTEXT_CHARS = 12_000;
 const MAX_HUNK_LINES = 400;
 const MAX_LINE_CHARS = 2_000;
@@ -64,22 +67,45 @@ function readEnv(name: string): string | undefined {
 }
 
 export function getModelConfig(): ModelConfig {
-  const baseUrl = (readEnv('MODEL_BASE_URL') || DEFAULT_MODEL_BASE_URL).replace(/\/+$/, '');
+  const geminiKey = readEnv('GEMINI_API_KEY');
+  const genericKey = readEnv('MODEL_API_KEY');
+  const apiKey = geminiKey || genericKey || null;
+
+  // Auto-detect if using Google Gemini (by explicit key name, key prefix AIzaSy, or explicit config)
+  const isGemini =
+    Boolean(geminiKey) ||
+    Boolean(apiKey && apiKey.startsWith('AIzaSy')) ||
+    (readEnv('MODEL_BASE_URL') || '').includes('generativelanguage.googleapis.com') ||
+    (readEnv('MODEL_NAME') || '').toLowerCase().startsWith('gemini');
+
+  let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
+  let defaultModelName = DEFAULT_MODEL_NAME;
+
+  if (isGemini) {
+    defaultBaseUrl = GEMINI_DEFAULT_BASE_URL;
+    defaultModelName = GEMINI_DEFAULT_MODEL;
+  }
+
+  const baseUrl = (readEnv('MODEL_BASE_URL') || defaultBaseUrl).replace(/\/+$/, '');
   const timeoutMs = Number(readEnv('MODEL_TIMEOUT_MS') || 45_000);
-  const maxOutputTokens = Number(readEnv('MODEL_MAX_OUTPUT_TOKENS') || 700);
+  const maxOutputTokens = Number(readEnv('MODEL_MAX_OUTPUT_TOKENS') || 3_000);
 
   return {
-    apiKey: readEnv('MODEL_API_KEY') || null,
+    apiKey,
     baseUrl,
-    model: readEnv('MODEL_NAME') || DEFAULT_MODEL_NAME,
+    model: readEnv('MODEL_NAME') || defaultModelName,
     providerLabel:
       readEnv('MODEL_PROVIDER_LABEL') ||
-      (baseUrl.includes('openrouter.ai') ? 'OpenRouter' : 'OpenAI-compatible'),
+      (baseUrl.includes('googleapis.com')
+        ? 'Google Gemini'
+        : baseUrl.includes('openrouter.ai')
+        ? 'OpenRouter'
+        : 'OpenAI-compatible'),
     timeoutMs: Number.isFinite(timeoutMs) && timeoutMs >= 1_000 ? timeoutMs : 45_000,
     maxOutputTokens:
       Number.isFinite(maxOutputTokens) && maxOutputTokens >= 64
-        ? Math.min(maxOutputTokens, 4_000)
-        : 700,
+        ? Math.min(maxOutputTokens, 8_000)
+        : 3_000,
   };
 }
 

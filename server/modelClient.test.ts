@@ -174,3 +174,26 @@ test('provider HTTP failures are mapped to honest retryable/non-retryable errors
       error instanceof ModelError && error.code === 'model_timeout' && error.retryable === true
   );
 });
+
+test('getModelConfig auto-detects Gemini and falls back to OpenRouter correctly', async () => {
+  const { getModelConfig } = await import('./modelClient');
+  
+  // Test with OpenRouter
+  process.env.MODEL_API_KEY = 'sk-or-v1-test';
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.MODEL_BASE_URL;
+  delete process.env.MODEL_NAME;
+  const orConfig = getModelConfig();
+  assert.equal(orConfig.providerLabel, 'OpenRouter');
+  assert.equal(orConfig.model, 'cohere/north-mini-code:free');
+
+  // Test with Gemini key
+  process.env.GEMINI_API_KEY = 'AIzaSy-test-gemini-key';
+  const geminiConfig = getModelConfig();
+  assert.equal(geminiConfig.providerLabel, 'Google Gemini');
+  assert.equal(geminiConfig.model, 'gemini-1.5-flash');
+  assert.ok(geminiConfig.baseUrl.includes('googleapis.com'));
+
+  // Clean up
+  delete process.env.GEMINI_API_KEY;
+});

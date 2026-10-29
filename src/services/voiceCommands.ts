@@ -275,29 +275,10 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     return { kind: 'summarize-pr', transcript, normalized };
   }
 
-  // ── Freeform repo question / code intelligence: route to AI as ask-repo ──
-  const isQuestion = /\b(what|how|why|where|when|who|which|is|are|does|do|can|could|should|would|will|has|have|did)\b/.test(normalized);
-  if ((isQuestion || ERROR_PATTERN.test(normalized)) && normalized.split(' ').length >= 3) {
-    return { kind: 'ask-repo', transcript, normalized };
-  }
-
-  // ── Bare explain verb without target (e.g. "Explain this") ──
-  if (EXPLAIN_VERB_PATTERN.test(normalized)) {
-    return {
-      kind: 'clarify',
-      reason: 'missing-target',
-      message: CLARIFY_MESSAGE,
-      transcript,
-      normalized,
-    };
-  }
-
-  return {
-    kind: 'unsupported',
-    message: UNSUPPORTED_MESSAGE,
-    transcript,
-    normalized,
-  };
+  // ── 100% Command-Free Conversational AI ──
+  // Any speech, question, or phrase flows directly to the AI model (ask-repo)
+  // with the full active file, PR diffs, and codebase context attached.
+  return { kind: 'ask-repo', transcript, normalized };
 }
 
 /** Canonical text command for the shared Gitvox command router. */

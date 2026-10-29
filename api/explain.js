@@ -1,6 +1,8 @@
 // server/modelClient.ts
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
 var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
+var GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
+var GEMINI_DEFAULT_MODEL = "gemini-1.5-flash";
 var MAX_FILE_CONTEXT_CHARS = 12e3;
 var MAX_HUNK_LINES = 400;
 var MAX_LINE_CHARS = 2e3;
@@ -28,16 +30,26 @@ function readEnv(name) {
   return void 0;
 }
 function getModelConfig() {
-  const baseUrl = (readEnv("MODEL_BASE_URL") || DEFAULT_MODEL_BASE_URL).replace(/\/+$/, "");
+  const geminiKey = readEnv("GEMINI_API_KEY");
+  const genericKey = readEnv("MODEL_API_KEY");
+  const apiKey = geminiKey || genericKey || null;
+  const isGemini = Boolean(geminiKey) || Boolean(apiKey && apiKey.startsWith("AIzaSy")) || (readEnv("MODEL_BASE_URL") || "").includes("generativelanguage.googleapis.com") || (readEnv("MODEL_NAME") || "").toLowerCase().startsWith("gemini");
+  let defaultBaseUrl = DEFAULT_MODEL_BASE_URL;
+  let defaultModelName = DEFAULT_MODEL_NAME;
+  if (isGemini) {
+    defaultBaseUrl = GEMINI_DEFAULT_BASE_URL;
+    defaultModelName = GEMINI_DEFAULT_MODEL;
+  }
+  const baseUrl = (readEnv("MODEL_BASE_URL") || defaultBaseUrl).replace(/\/+$/, "");
   const timeoutMs = Number(readEnv("MODEL_TIMEOUT_MS") || 45e3);
-  const maxOutputTokens = Number(readEnv("MODEL_MAX_OUTPUT_TOKENS") || 700);
+  const maxOutputTokens = Number(readEnv("MODEL_MAX_OUTPUT_TOKENS") || 3e3);
   return {
-    apiKey: readEnv("MODEL_API_KEY") || null,
+    apiKey,
     baseUrl,
-    model: readEnv("MODEL_NAME") || DEFAULT_MODEL_NAME,
-    providerLabel: readEnv("MODEL_PROVIDER_LABEL") || (baseUrl.includes("openrouter.ai") ? "OpenRouter" : "OpenAI-compatible"),
+    model: readEnv("MODEL_NAME") || defaultModelName,
+    providerLabel: readEnv("MODEL_PROVIDER_LABEL") || (baseUrl.includes("googleapis.com") ? "Google Gemini" : baseUrl.includes("openrouter.ai") ? "OpenRouter" : "OpenAI-compatible"),
     timeoutMs: Number.isFinite(timeoutMs) && timeoutMs >= 1e3 ? timeoutMs : 45e3,
-    maxOutputTokens: Number.isFinite(maxOutputTokens) && maxOutputTokens >= 64 ? Math.min(maxOutputTokens, 4e3) : 700
+    maxOutputTokens: Number.isFinite(maxOutputTokens) && maxOutputTokens >= 64 ? Math.min(maxOutputTokens, 8e3) : 3e3
   };
 }
 function requireString(value, field, maxChars) {

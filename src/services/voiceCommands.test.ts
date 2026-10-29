@@ -136,11 +136,21 @@ test('freeform repo questions route to ask-repo', () => {
   }
 });
 
-test('ambiguous and incomplete requests ask for clarification without executing', () => {
-  const ambiguous = interpretVoiceTranscript('Explain this');
-  assert.equal(ambiguous.kind, 'clarify');
-  assert.equal(voiceCommandToText(ambiguous), null);
+test('natural and command-free requests route directly to ask-repo', () => {
+  for (const phrase of [
+    'Explain this',
+    'the code',
+    'whole files code',
+    'explain me the code right now',
+    'Tell me a joke',
+  ]) {
+    const match = interpretVoiceTranscript(phrase);
+    assert.equal(match.kind, 'ask-repo', phrase);
+    assert.equal(voiceCommandToText(match), phrase);
+  }
+});
 
+test('incomplete line commands and empty audio ask for clarification', () => {
   const noNumbers = interpretVoiceTranscript('Explain lines');
   assert.equal(noNumbers.kind, 'clarify');
   if (noNumbers.kind === 'clarify') {
@@ -156,10 +166,4 @@ test('ambiguous and incomplete requests ask for clarification without executing'
   const empty = interpretVoiceTranscript('   ');
   assert.equal(empty.kind, 'clarify');
   assert.equal(voiceCommandToText(empty), null);
-});
-
-test('unrelated non-question requests are unsupported', () => {
-  const joke = interpretVoiceTranscript('Tell me a joke');
-  assert.equal(joke.kind, 'unsupported');
-  assert.equal(voiceCommandToText(joke), null);
 });

@@ -158,13 +158,13 @@ test('function request uses the selected function and explains missing context',
   }
 });
 
-test('clarification and unsupported matches never build a model request', () => {
-  const ambiguous = buildAssistantRequest(interpretVoiceTranscript('Explain this'), prContext);
+test('clarification and empty matches never build a model request', () => {
+  const ambiguous = buildAssistantRequest(interpretVoiceTranscript('Explain lines'), prContext);
   assert.equal(ambiguous.ok, false);
 
-  const unsupported = buildAssistantRequest(
-    interpretVoiceTranscript('Tell me a joke'),
+  const empty = buildAssistantRequest(
+    interpretVoiceTranscript('   '),
     prContext
   );
-  assert.equal(unsupported.ok, false);
+  assert.equal(empty.ok, false);
 });
