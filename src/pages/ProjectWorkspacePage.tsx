@@ -100,6 +100,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
 
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
+  const decorationsRef = useRef<string[]>([]);
   const initialContentsRef = useRef<Record<string, string>>({});
 
   // Ensure current file is in openFiles
@@ -128,19 +129,50 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
     const model = editorRef.current.getModel();
     if (!model) return;
 
-    const lang = getMonacoLanguage(filePath);
-    const syntaxErrors = checkCodeSyntax(code, lang);
+    const syntaxErrors = checkCodeSyntax(code, filePath);
 
+    // 1. Monaco Markers (Standard VS Code Marker System)
+    const severity = monacoRef.current.MarkerSeverity?.Error ?? 8;
     const markers = syntaxErrors.map((err) => ({
       startLineNumber: err.startLineNumber,
-      startColumn: err.startColumn,
+      startColumn: Math.max(1, err.startColumn),
       endLineNumber: err.endLineNumber,
-      endColumn: err.endColumn,
+      endColumn: Math.max(err.endColumn, err.startColumn + 4),
       message: err.message,
-      severity: monacoRef.current.MarkerSeverity.Error,
+      severity,
     }));
 
-    monacoRef.current.editor.setModelMarkers(model, 'gitvox-validator', markers);
+    monacoRef.current.editor.setModelMarkers(model, 'gitvox-universal-validator', markers);
+
+    // 2. Direct DOM Text Inline Decorations (Guarantees visible red wavy line across all browsers)
+    if (typeof editorRef.current.deltaDecorations === 'function') {
+      const newDecorations = syntaxErrors.map((err) => {
+        const lineContent = model.getLineContent(err.startLineNumber) || '';
+        const startCol = Math.max(1, err.startColumn);
+        const endCol = Math.max(err.endColumn, startCol + 4, Math.min(lineContent.length + 1, startCol + 6));
+
+        return {
+          range: new monacoRef.current.Range(err.startLineNumber, startCol, err.endLineNumber, endCol),
+          options: {
+            isWholeLine: false,
+            inlineClassName: 'gitvox-error-squiggly-inline',
+            hoverMessage: { value: `**${err.message}**` },
+            glyphMarginClassName: 'gitvox-error-glyph',
+            overviewRuler: {
+              color: '#ef4444',
+              position: monacoRef.current.editor.OverviewRulerLane?.Right ?? 4,
+            },
+            minimap: {
+              color: '#ef4444',
+              position: monacoRef.current.editor.MinimapPosition?.Inline ?? 1,
+            },
+          },
+        };
+      });
+
+      decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, newDecorations);
+    }
+
     setDiagnostics(syntaxErrors);
   };
 
@@ -625,6 +657,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
               <div className="flex-1 min-h-0 min-w-0 relative w-full h-full">
                 <Editor
                   height="100%"
+                  path={activeFile.path}
                   language={getMonacoLanguage(activeFile.path)}
                   theme="gitvox-studio-dark"
                   value={activeFile.content}

@@ -908,6 +908,23 @@
   border-radius: 6px !important;
 }
 
+/* Authentic VS Code Error Wavy Squiggly Underlines */
+.squiggly-error,
+.monaco-editor .squiggly-error,
+.gitvox-error-squiggly,
+.gitvox-error-squiggly-inline,
+.monaco-editor .view-line .gitvox-error-squiggly-inline {
+  text-decoration: underline wavy #ef4444 !important;
+  text-decoration-thickness: 2.5px !important;
+  text-underline-offset: 3.5px !important;
+  text-decoration-skip-ink: none !important;
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.gitvox-error-glyph {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ef4444'%3E%3Ccircle cx='8' cy='8' r='5'/%3E%3C/svg%3E") no-repeat center center !important;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

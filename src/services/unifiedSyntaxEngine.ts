@@ -69,7 +69,7 @@ export const validateJsonSyntax = (code: string): SyntaxDiagnostic[] => {
       startLineNumber: line,
       startColumn: col,
       endLineNumber: line,
-      endColumn: col + 4,
+      endColumn: col + 5,
       message: err.message || 'JSON Syntax Error',
       severity: 'error',
     });
@@ -80,6 +80,9 @@ export const validateJsonSyntax = (code: string): SyntaxDiagnostic[] => {
 /**
  * Validate Python syntax:
  * - Colons after compound statements (def, class, if, elif, else, for, while, try, except, finally, with)
+ * - Missing parentheses in function declarations (def foo:)
+ * - Python 3 print without parentheses: print "..."
+ * - Incomplete assignments and trailing operators (e.g. x = , x = 5 + )
  * - Indentation levels consistency
  * - Triple-quoted strings (""" and ''')
  * - Regular single/double quote strings
@@ -97,23 +100,6 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
   let docstringStartLine = 1;
   let expectIndentNextLine = false;
 
-  const COMPOUND_KEYWORDS = [
-    'def',
-    'class',
-    'if',
-    'elif',
-    'else',
-    'for',
-    'while',
-    'try',
-    'except',
-    'finally',
-    'with',
-    'async def',
-    'async for',
-    'async with',
-  ];
-
   for (let l = 0; l < lines.length; l++) {
     const rawLine = lines[l];
     const lineNum = l + 1;
@@ -127,7 +113,6 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
       continue;
     }
 
-    // Check for docstring opening
     const trimmed = rawLine.trim();
     if (!trimmed || trimmed.startsWith('#')) {
       continue; // Skip comments and empty lines
@@ -194,8 +179,8 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
             startLineNumber: lineNum,
             startColumn: c + 1,
             endLineNumber: lineNum,
-            endColumn: c + 2,
-            message: `SyntaxError: unmatched '${ch}'`,
+            endColumn: c + 4,
+            message: `SyntaxError: unmatched closing '${ch}'`,
             severity: 'error',
           });
           return errors;
@@ -206,7 +191,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
             startLineNumber: lineNum,
             startColumn: c + 1,
             endLineNumber: lineNum,
-            endColumn: c + 2,
+            endColumn: c + 4,
             message: `SyntaxError: closing '${ch}' does not match opening '${top.char}' on line ${top.line}`,
             severity: 'error',
           });
@@ -216,12 +201,13 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
     }
 
     if (inStr) {
+      const startC = Math.max(1, rawLine.lastIndexOf(inStr) + 1);
       errors.push({
         startLineNumber: lineNum,
-        startColumn: rawLine.lastIndexOf(inStr) + 1,
+        startColumn: startC,
         endLineNumber: lineNum,
         endColumn: rawLine.length + 1,
-        message: 'SyntaxError: unterminated string literal (detected at EOL)',
+        message: 'SyntaxError: unterminated string literal',
         severity: 'error',
       });
       return errors;
@@ -230,7 +216,20 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
     const cleanTrimmed = cleanCode.trim();
     if (!cleanTrimmed) continue;
 
-    // Only validate indentations when outside of brackets (Python allows free indent inside parens/brackets)
+    // Check Python 3 print without parens: print "hello" or print 123
+    if (/^print\s+["'0-9a-zA-Z_]/.test(cleanTrimmed) && !cleanTrimmed.startsWith('print(')) {
+      errors.push({
+        startLineNumber: lineNum,
+        startColumn: indent + 1,
+        endLineNumber: lineNum,
+        endColumn: indent + 6,
+        message: "SyntaxError: Missing parentheses in call to 'print'",
+        severity: 'error',
+      });
+      return errors;
+    }
+
+    // Only validate indentations and statement terminators when outside of brackets
     if (bracketStack.length === 0) {
       const currentIndentLevel = indentStack[indentStack.length - 1];
 
@@ -240,7 +239,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
             startLineNumber: lineNum,
             startColumn: 1,
             endLineNumber: lineNum,
-            endColumn: indent + 1,
+            endColumn: Math.max(4, indent + 2),
             message: 'IndentationError: expected an indented block',
             severity: 'error',
           });
@@ -253,7 +252,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
           startLineNumber: lineNum,
           startColumn: 1,
           endLineNumber: lineNum,
-          endColumn: indent + 1,
+          endColumn: Math.max(4, indent + 2),
           message: 'IndentationError: unexpected indent',
           severity: 'error',
         });
@@ -267,7 +266,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
             startLineNumber: lineNum,
             startColumn: 1,
             endLineNumber: lineNum,
-            endColumn: indent + 1,
+            endColumn: Math.max(4, indent + 2),
             message: 'IndentationError: unindent does not match any outer indentation level',
             severity: 'error',
           });
@@ -275,16 +274,34 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
         }
       }
 
+      // Check function def without parens: e.g. "def foo:"
+      if (/^(async\s+)?def\s+[a-zA-Z_][a-zA-Z0-9_]*\s*:/.test(cleanTrimmed)) {
+        errors.push({
+          startLineNumber: lineNum,
+          startColumn: indent + 1,
+          endLineNumber: lineNum,
+          endColumn: rawLine.length + 1,
+          message: "SyntaxError: expected '(' in function definition",
+          severity: 'error',
+        });
+        return errors;
+      }
+
       // Check compound statement colon requirement
+      const COMPOUND_KEYWORDS = [
+        'def', 'class', 'if', 'elif', 'else', 'for', 'while',
+        'try', 'except', 'finally', 'with', 'async def', 'async for', 'async with'
+      ];
+
       for (const kw of COMPOUND_KEYWORDS) {
         const isMatch = cleanTrimmed === kw || cleanTrimmed.startsWith(kw + ' ') || cleanTrimmed.startsWith(kw + '(');
         if (isMatch) {
           if (!cleanTrimmed.endsWith(':')) {
             errors.push({
               startLineNumber: lineNum,
-              startColumn: rawLine.length,
+              startColumn: Math.max(1, rawLine.length - 1),
               endLineNumber: lineNum,
-              endColumn: rawLine.length + 1,
+              endColumn: rawLine.length + 3,
               message: `SyntaxError: expected ':' at end of '${kw}' statement`,
               severity: 'error',
             });
@@ -294,6 +311,19 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
           break;
         }
       }
+
+      // Check incomplete trailing assignments: e.g. "x =" or "total +=" without RHS
+      if (/(=|\+=|-=|\*=|\/=|==|!=|<=|>=)$/.test(cleanTrimmed) && !cleanTrimmed.endsWith('==') && !cleanTrimmed.endsWith('!=')) {
+        errors.push({
+          startLineNumber: lineNum,
+          startColumn: Math.max(1, rawLine.length - 2),
+          endLineNumber: lineNum,
+          endColumn: rawLine.length + 2,
+          message: "SyntaxError: incomplete assignment or expression",
+          severity: 'error',
+        });
+        return errors;
+      }
     }
   }
 
@@ -302,7 +332,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
       startLineNumber: docstringStartLine,
       startColumn: 1,
       endLineNumber: lines.length,
-      endColumn: lines[lines.length - 1].length + 1,
+      endColumn: lines[lines.length - 1].length + 4,
       message: `SyntaxError: EOF while scanning triple-quoted string literal (${inDocstring})`,
       severity: 'error',
     });
@@ -315,7 +345,7 @@ export const validatePythonSyntax = (code: string): SyntaxDiagnostic[] => {
       startLineNumber: unclosed.line,
       startColumn: unclosed.col,
       endLineNumber: unclosed.line,
-      endColumn: unclosed.col + 1,
+      endColumn: unclosed.col + 4,
       message: `SyntaxError: unclosed delimiter '${unclosed.char}'`,
       severity: 'error',
     });
@@ -341,8 +371,66 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
   for (let l = 0; l < lines.length; l++) {
     const lineStr = lines[l];
     const lineNum = l + 1;
+    const trimmedLine = lineStr.trim();
     let inString: string | null = null;
     let isEscaped = false;
+
+    // Check misspelled common keywords in JS/TS
+    if (language === 'javascript' || language === 'typescript') {
+      const typoMatches = [
+        { typo: /\bconts\b/, correct: 'const' },
+        { typo: /\bfuntion\b/, correct: 'function' },
+        { typo: /\bretrun\b/, correct: 'return' },
+        { typo: /\bimprot\b/, correct: 'import' },
+        { typo: /\bexprot\b/, correct: 'export' },
+      ];
+      for (const t of typoMatches) {
+        const m = lineStr.match(t.typo);
+        if (m && m.index !== undefined) {
+          errors.push({
+            startLineNumber: lineNum,
+            startColumn: m.index + 1,
+            endLineNumber: lineNum,
+            endColumn: m.index + 1 + m[0].length,
+            message: `SyntaxError: Unknown keyword '${m[0]}' (did you mean '${t.correct}'?)`,
+            severity: 'error',
+          });
+          return errors;
+        }
+      }
+
+      // Check empty assignment: e.g. "const a = ;" or "let x = ;"
+      const emptyAssign = lineStr.match(/(const|let|var)\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*=\s*;/);
+      if (emptyAssign && emptyAssign.index !== undefined) {
+        const col = lineStr.indexOf('=', emptyAssign.index);
+        errors.push({
+          startLineNumber: lineNum,
+          startColumn: col + 1,
+          endLineNumber: lineNum,
+          endColumn: col + 3,
+          message: "SyntaxError: Unexpected ';' in assignment",
+          severity: 'error',
+        });
+        return errors;
+      }
+    }
+
+    // Check empty assignment in C++ / Java / Rust: e.g. "int x = ;"
+    if (language === 'cpp' || language === 'c' || language === 'java' || language === 'csharp') {
+      const emptyTypedAssign = lineStr.match(/[a-zA-Z_][a-zA-Z0-9_]*\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*;/);
+      if (emptyTypedAssign && emptyTypedAssign.index !== undefined) {
+        const col = lineStr.indexOf('=', emptyTypedAssign.index);
+        errors.push({
+          startLineNumber: lineNum,
+          startColumn: col + 1,
+          endLineNumber: lineNum,
+          endColumn: col + 3,
+          message: "SyntaxError: Expected expression after '='",
+          severity: 'error',
+        });
+        return errors;
+      }
+    }
 
     for (let c = 0; c < lineStr.length; c++) {
       const char = lineStr[c];
@@ -396,11 +484,9 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
         continue;
       }
 
-      // Rust raw strings / char literals vs standard strings
+      // Rust / C++ char literals vs strings
       if (char === "'" || char === '"') {
-        // In Rust or C++, avoid treating lifetime ('a) or character literal closing as broken string
         if (char === "'" && (language === 'rust' || language === 'cpp' || language === 'c')) {
-          // If followed by char then single quote (e.g. 'a' or '\n')
           if (nextChar && lineStr[c + 2] === "'") {
             c += 2;
             continue;
@@ -409,7 +495,6 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
             c += 3;
             continue;
           }
-          // Rust lifetime: 'static, 'a
           if (language === 'rust' && /[a-zA-Z_]/.test(nextChar)) {
             continue;
           }
@@ -429,7 +514,7 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
             startLineNumber: lineNum,
             startColumn: c + 1,
             endLineNumber: lineNum,
-            endColumn: c + 2,
+            endColumn: c + 4,
             message: `SyntaxError: unexpected closing '${char}' without opening delimiter`,
             severity: 'error',
           });
@@ -441,7 +526,7 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
             startLineNumber: lineNum,
             startColumn: c + 1,
             endLineNumber: lineNum,
-            endColumn: c + 2,
+            endColumn: c + 4,
             message: `SyntaxError: mismatched delimiter: expected '${top.char === '{' ? '}' : top.char === '(' ? ')' : ']'}' but found '${char}'`,
             severity: 'error',
           });
@@ -452,11 +537,12 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
 
     // Check for unterminated string on current line
     if (inString) {
+      const startC = Math.max(1, lineStr.lastIndexOf(inString) + 1);
       errors.push({
         startLineNumber: lineNum,
-        startColumn: lineStr.lastIndexOf(inString) + 1,
+        startColumn: startC,
         endLineNumber: lineNum,
-        endColumn: lineStr.length + 1,
+        endColumn: lineStr.length + 2,
         message: 'SyntaxError: unterminated string literal',
         severity: 'error',
       });
@@ -469,7 +555,7 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
       startLineNumber: lines.length,
       startColumn: 1,
       endLineNumber: lines.length,
-      endColumn: lines[lines.length - 1].length + 1,
+      endColumn: lines[lines.length - 1].length + 4,
       message: 'SyntaxError: unterminated template literal (`)',
       severity: 'error',
     });
@@ -481,7 +567,7 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
       startLineNumber: blockCommentStartLine,
       startColumn: 1,
       endLineNumber: lines.length,
-      endColumn: lines[lines.length - 1].length + 1,
+      endColumn: lines[lines.length - 1].length + 4,
       message: 'SyntaxError: unclosed block comment (/* ... */)',
       severity: 'error',
     });
@@ -494,7 +580,7 @@ export const validateCFamilySyntax = (code: string, language: string): SyntaxDia
       startLineNumber: unclosed.line,
       startColumn: unclosed.col,
       endLineNumber: unclosed.line,
-      endColumn: unclosed.col + 1,
+      endColumn: unclosed.col + 4,
       message: `SyntaxError: unclosed delimiter '${unclosed.char}'`,
       severity: 'error',
     });
