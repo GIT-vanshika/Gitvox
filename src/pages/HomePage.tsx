@@ -235,33 +235,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               {/* Hero Visual: Acoustic Voice Matrix 3D Scene + Sleek HUD */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-md items-stretch mt-space-sm">
                 {/* 3D Acoustic Scene Container */}
-                <div className="lg:col-span-7 relative flex flex-col justify-between rounded-2xl bg-surface-container-lowest border border-primary/20 shadow-2xl overflow-hidden min-h-[420px] p-5">
-                  {/* Header Badges */}
-                  <div className="flex items-center justify-between z-20">
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-surface-container-low/90 backdrop-blur-md border border-primary/30">
-                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#f59e0b]"></span>
-                      <span className="font-telemetry-tag text-telemetry-tag text-on-surface uppercase">Acoustic Matrix // Voice Orb</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded bg-secondary/15 text-secondary-fixed font-telemetry-tag text-telemetry-tag border border-secondary/30">
-                      3D Equalizer Active
-                    </span>
-                  </div>
-
+                <div className="lg:col-span-7 relative rounded-2xl bg-surface-container-lowest border border-primary/20 shadow-2xl overflow-hidden min-h-[420px]">
                   {/* 3D Scene Canvas */}
                   <div className="absolute inset-0 w-full h-full bg-transparent">
                     <AcousticSphere3D />
-                  </div>
-
-                  {/* Bottom Scene Telemetry */}
-                  <div className="relative z-20 flex items-center justify-between text-outline font-telemetry-tag text-telemetry-tag border-t border-surface-container-high/60 pt-3 bg-gradient-to-t from-surface-container-lowest/80 to-transparent">
-                    <span className="text-primary font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      Golden Orbital Harmonic
-                    </span>
-                    <span className="text-secondary font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                      Violet Waveform Sphere
-                    </span>
                   </div>
                 </div>
 
