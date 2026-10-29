@@ -433,33 +433,14 @@ export function App() {
         setSystemStatus('Idle');
         throw liveError;
       }
+      setSystemStatus('Failed');
       const errorInfo = toModelErrorInfo(liveError);
-      if (errorInfo.code === 'upstream_rate_limited' || errorInfo.code === 'upstream_auth') {
-        setSystemStatus('Failed');
-        return {
-          kind: 'error',
-          message: errorInfo.message,
-          retryable: errorInfo.retryable,
-        };
-      }
-      console.warn('[handleVoiceRequest] Live model call failed, falling back to grounded local engine:', liveError);
-      try {
-        const localExplanation = generateGroundedLocalExplanation(transcript);
-        setSystemStatus('Completed');
-        return {
-          kind: 'answer',
-          title: built.title,
-          explanation: localExplanation,
-        };
-      } catch (fallbackError) {
-        setSystemStatus('Failed');
-        const info = toModelErrorInfo(fallbackError);
-        return {
-          kind: 'error',
-          message: 'Could not process query. Please try again.',
-          retryable: info.retryable,
-        };
-      }
+      console.warn('[handleVoiceRequest] Model request failed:', liveError);
+      return {
+        kind: 'error',
+        message: errorInfo.message,
+        retryable: errorInfo.retryable,
+      };
     }
   };
 

@@ -8,6 +8,7 @@ import type {
   PRFileChange,
   PullRequestData,
 } from '../types/gitvox';
+import { buildAssistantPrompt } from '../../server/assistantClient';
 
 const CLIENT_TIMEOUT_MS = 60_000;
 
@@ -225,6 +226,138 @@ async function postExplanation(
   }
 }
 
+function getClientGeminiKey(): string | undefined {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const env = import.meta.env as Record<string, unknown>;
+    for (const [key, val] of Object.entries(env)) {
+      const norm = key.toLowerCase().replace(/[\s_\-.]+/g, '');
+      if (norm.includes('gemini') && (norm.includes('key') || norm.includes('token'))) {
+        if (typeof val === 'string' && val.trim().length > 0) {
+          return val.trim();
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+async function callDirectGemini(
+  request: AssistantRequest,
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<ModelExplanation> {
+  const { messages, truncated } = buildAssistantPrompt(request);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener('abort', forwardAbort, { once: true });
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+  };
+
+  const startedAt = Date.now();
+  let modelName = 'gemini-3.5-flash-lite';
+
+  try {
+    let res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: modelName,
+        messages,
+        temperature: 0.3,
+        max_tokens: 2500,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok && (res.status === 429 || res.status === 503)) {
+      modelName = 'gemini-3.5-flash';
+      try {
+        const fallbackRes = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: modelName,
+            messages,
+            temperature: 0.3,
+            max_tokens: 2500,
+          }),
+          signal: controller.signal,
+        });
+        if (fallbackRes.ok) {
+          res = fallbackRes;
+        }
+      } catch {
+        // Fallback network error; keep original response
+      }
+    }
+
+    if (!res.ok) {
+      let msg = `Gemini returned HTTP ${res.status}`;
+      try {
+        const errJson = (await res.json()) as { error?: { message?: string } };
+        if (errJson.error?.message) {
+          msg = errJson.error.message;
+        }
+      } catch {}
+
+      const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exceeded');
+      throw new ModelServiceError({
+        code: res.status === 429 ? 'upstream_rate_limited' : 'upstream_error',
+        message: isQuota
+          ? 'Gemini API free tier quota limit reached (20 requests/day). Switch models or update your Gemini key.'
+          : msg,
+        retryable: res.status === 429 || res.status >= 500,
+      });
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: ModelExplanation['usage'];
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') {
+      throw new ModelServiceError({
+        code: 'invalid_model_response',
+        message: 'Gemini returned an empty response.',
+        retryable: true,
+      });
+    }
+
+    return {
+      text: content,
+      model: modelName,
+      provider: 'Google Gemini',
+      usage: data.usage,
+      latencyMs: Date.now() - startedAt,
+      generatedAt: new Date().toISOString(),
+      truncatedContext: truncated,
+    };
+  } catch (error) {
+    if (error instanceof ModelServiceError) throw error;
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ModelServiceError({
+        code: signal?.aborted ? 'request_cancelled' : 'client_timeout',
+        message: signal?.aborted
+          ? 'The explanation request was cancelled.'
+          : 'The model did not respond within 60 seconds. Retry the explanation.',
+        retryable: !signal?.aborted,
+      });
+    }
+    throw new ModelServiceError({
+      code: 'network_error',
+      message: error instanceof Error ? error.message : 'Could not reach Gemini API.',
+      retryable: true,
+    });
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', forwardAbort);
+  }
+}
+
 /**
  * Calls the grounded voice-assistant endpoint with the real selected context.
  */
@@ -232,7 +365,20 @@ export async function explainAssistantWithModel(
   request: AssistantRequest,
   signal?: AbortSignal
 ): Promise<ModelExplanation> {
-  return postExplanation('/api/assistant/explain', request, signal);
+  try {
+    return await postExplanation('/api/assistant/explain', request, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+
+    // If server bridge is unreachable, try direct client-side Gemini if key is in client env!
+    const clientKey = getClientGeminiKey();
+    if (clientKey) {
+      console.warn('[modelService] Server bridge failed, attempting direct Gemini call with client key...');
+      return await callDirectGemini(request, clientKey, signal);
+    }
+
+    throw error;
+  }
 }
 
 /**

@@ -672,13 +672,6 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="w-full bg-surface-container-lowest border-t border-surface-container-high/60 py-space-md">
-        <div className="max-w-7xl mx-auto px-space-lg flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
-          <span>© 2026 GITVOX INTEL</span>
-        </div>
-      </footer>
     </div>
   );
 };
