@@ -342,20 +342,10 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                 </span>
                 <span className="text-on-surface-variant">PR #{pullRequest.number}</span>
                 <span className="text-outline-variant">•</span>
-                <span className="flex items-center gap-1 text-on-surface">
-                  <span className="material-symbols-outlined text-[15px] text-violet-400">person</span>
-                  {pullRequest.author}
-                </span>
-                <span className="text-outline-variant">•</span>
                 <span className="flex items-center gap-1 text-on-surface-variant font-code-block text-[11px] bg-surface-container px-2 py-0.5 rounded">
                   <span className="text-violet-400">{pullRequest.sourceBranch}</span>
                   <span className="material-symbols-outlined text-[13px]">arrow_right_alt</span>
                   <span className="text-on-surface">{pullRequest.targetBranch}</span>
-                </span>
-                <span className="text-outline-variant">•</span>
-                <span className="flex items-center gap-1 text-amber-400">
-                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                  CI: {pullRequest.ciStatus}
                 </span>
               </div>
 
