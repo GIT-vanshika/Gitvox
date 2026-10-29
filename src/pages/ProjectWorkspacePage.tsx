@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import Editor, { OnMount, BeforeMount } from '@monaco-editor/react';
 import { FileTree } from '../components/common/FileTree';
 import {
   CodeFunction,
@@ -17,6 +17,194 @@ const getMonacoLanguage = (filePath?: string): string => {
   if (filePath?.endsWith('.css')) return 'css';
   if (filePath?.endsWith('.html')) return 'html';
   return 'javascript';
+};
+
+export const getFileIcon = (filePath: string) => {
+  if (filePath.endsWith('.json')) {
+    return <span className="font-code-block text-[12px] text-amber-400 font-bold">&#123;&#125;</span>;
+  }
+  if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+    return <span className="font-code-block text-[12px] text-cyan-400 font-bold">&lt;&gt;</span>;
+  }
+  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.mjs')) {
+    return <span className="material-symbols-outlined text-[15px] text-yellow-400">javascript</span>;
+  }
+  if (filePath.endsWith('.md')) {
+    return <span className="material-symbols-outlined text-[15px] text-slate-400">description</span>;
+  }
+  return <span className="material-symbols-outlined text-[15px] text-secondary">code</span>;
+};
+
+export interface SyntaxDiagnostic {
+  startLineNumber: number;
+  startColumn: number;
+  endLineNumber: number;
+  endColumn: number;
+  message: string;
+}
+
+export const checkCodeSyntax = (code: string, language: string): SyntaxDiagnostic[] => {
+  const errors: SyntaxDiagnostic[] = [];
+  if (!code) return errors;
+
+  if (language === 'json') {
+    try {
+      JSON.parse(code);
+    } catch (err: any) {
+      const match = err.message?.match(/position\s+(\d+)/i);
+      let line = 1;
+      let col = 1;
+      if (match) {
+        const pos = parseInt(match[1], 10);
+        const prefix = code.slice(0, pos);
+        const lines = prefix.split('\n');
+        line = lines.length;
+        col = lines[lines.length - 1].length + 1;
+      }
+      errors.push({
+        startLineNumber: line,
+        startColumn: col,
+        endLineNumber: line,
+        endColumn: col + 4,
+        message: err.message || 'JSON Syntax Error',
+      });
+    }
+    return errors;
+  }
+
+  if (language === 'javascript' || language === 'typescript') {
+    const stack: Array<{ char: string; line: number; col: number }> = [];
+    const lines = code.split('\n');
+    let inBlockComment = false;
+    let inTemplateLiteral = false;
+
+    for (let l = 0; l < lines.length; l++) {
+      const lineStr = lines[l];
+      let inString: string | null = null;
+      let isEscaped = false;
+
+      for (let c = 0; c < lineStr.length; c++) {
+        const char = lineStr[c];
+        const nextChar = lineStr[c + 1];
+
+        // Handle multi-line comment
+        if (inBlockComment) {
+          if (char === '*' && nextChar === '/') {
+            inBlockComment = false;
+            c++;
+          }
+          continue;
+        }
+
+        if (!inString && !inTemplateLiteral && char === '/' && nextChar === '*') {
+          inBlockComment = true;
+          c++;
+          continue;
+        }
+
+        // Handle single-line comment
+        if (!inString && !inTemplateLiteral && char === '/' && nextChar === '/') {
+          break;
+        }
+
+        // Handle template string
+        if (char === '`' && !isEscaped) {
+          inTemplateLiteral = !inTemplateLiteral;
+          continue;
+        }
+
+        if (inTemplateLiteral) {
+          if (char === '\\') {
+            isEscaped = !isEscaped;
+          } else {
+            isEscaped = false;
+          }
+          continue;
+        }
+
+        // Handle regular quotes
+        if (inString) {
+          if (isEscaped) {
+            isEscaped = false;
+          } else if (char === '\\') {
+            isEscaped = true;
+          } else if (char === inString) {
+            inString = null;
+          }
+          continue;
+        }
+
+        if (char === "'" || char === '"') {
+          inString = char;
+          continue;
+        }
+
+        // Track opening and closing brackets
+        if (char === '{' || char === '(' || char === '[') {
+          stack.push({ char, line: l + 1, col: c + 1 });
+        } else if (char === '}' || char === ')' || char === ']') {
+          const expected = char === '}' ? '{' : char === ')' ? '(' : '[';
+          if (stack.length === 0) {
+            errors.push({
+              startLineNumber: l + 1,
+              startColumn: c + 1,
+              endLineNumber: l + 1,
+              endColumn: c + 2,
+              message: `Unexpected closing '${char}' without opening bracket`,
+            });
+            return errors;
+          }
+          const top = stack.pop()!;
+          if (top.char !== expected) {
+            errors.push({
+              startLineNumber: l + 1,
+              startColumn: c + 1,
+              endLineNumber: l + 1,
+              endColumn: c + 2,
+              message: `Mismatched bracket: expected '${top.char === '{' ? '}' : top.char === '(' ? ')' : ']'}' but found '${char}'`,
+            });
+            return errors;
+          }
+        }
+      }
+
+      // Check for unclosed string on line
+      if (inString) {
+        errors.push({
+          startLineNumber: l + 1,
+          startColumn: lineStr.lastIndexOf(inString) + 1,
+          endLineNumber: l + 1,
+          endColumn: lineStr.length + 1,
+          message: `Unterminated string literal`,
+        });
+        return errors;
+      }
+    }
+
+    if (inTemplateLiteral) {
+      errors.push({
+        startLineNumber: lines.length,
+        startColumn: 1,
+        endLineNumber: lines.length,
+        endColumn: lines[lines.length - 1].length + 1,
+        message: 'Unterminated template literal (`)',
+      });
+      return errors;
+    }
+
+    if (stack.length > 0) {
+      const unclosed = stack.pop()!;
+      errors.push({
+        startLineNumber: unclosed.line,
+        startColumn: unclosed.col,
+        endLineNumber: unclosed.line,
+        endColumn: unclosed.col + 1,
+        message: `Unclosed delimiter '${unclosed.char}'`,
+      });
+    }
+  }
+
+  return errors;
 };
 
 interface ProjectWorkspacePageProps {
@@ -61,8 +249,10 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
   const [cursorPosition, setCursorPosition] = useState({ line: 9, col: 24 });
   const [openEditorsCollapsed, setOpenEditorsCollapsed] = useState(false);
   const [wordWrap, setWordWrap] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<SyntaxDiagnostic[]>([]);
 
   const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
   const initialContentsRef = useRef<Record<string, string>>({});
 
   // Ensure current file is in openFiles
@@ -86,9 +276,37 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
       activeFile.content !== initialContentsRef.current[activeFile.path]
   );
 
+  const runDiagnostics = (code: string, filePath: string) => {
+    if (!monacoRef.current || !editorRef.current) return;
+    const model = editorRef.current.getModel();
+    if (!model) return;
+
+    const lang = getMonacoLanguage(filePath);
+    const syntaxErrors = checkCodeSyntax(code, lang);
+
+    const markers = syntaxErrors.map((err) => ({
+      startLineNumber: err.startLineNumber,
+      startColumn: err.startColumn,
+      endLineNumber: err.endLineNumber,
+      endColumn: err.endColumn,
+      message: err.message,
+      severity: monacoRef.current.MarkerSeverity.Error,
+    }));
+
+    monacoRef.current.editor.setModelMarkers(model, 'gitvox-validator', markers);
+    setDiagnostics(syntaxErrors);
+  };
+
+  useEffect(() => {
+    if (activeFile) {
+      runDiagnostics(activeFile.content, activeFile.path);
+    }
+  }, [activeFile?.path]);
+
   const handleResetFile = () => {
     if (activeFile && initialContentsRef.current[activeFile.path] !== undefined && onUpdateFileContent) {
       onUpdateFileContent(activeFile.path, initialContentsRef.current[activeFile.path]);
+      runDiagnostics(initialContentsRef.current[activeFile.path], activeFile.path);
     }
   };
 
@@ -114,11 +332,98 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
     }
   };
 
-  const handleEditorDidMount: OnMount = (editor) => {
+  const handleUndo = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('gitvox', 'undo', null);
+      editorRef.current.focus();
+    }
+  };
+
+  const handleRedo = () => {
+    if (editorRef.current) {
+      editorRef.current.trigger('gitvox', 'redo', null);
+      editorRef.current.focus();
+    }
+  };
+
+  const handleJumpToError = (diag: SyntaxDiagnostic) => {
+    if (editorRef.current) {
+      editorRef.current.revealLineInCenter(diag.startLineNumber);
+      editorRef.current.setPosition({
+        lineNumber: diag.startLineNumber,
+        column: diag.startColumn,
+      });
+      editorRef.current.focus();
+    }
+  };
+
+  const handleEditorBeforeMount: BeforeMount = (monaco) => {
+    // Enable TS/JS compiler diagnostics
+    if (monaco?.languages?.typescript) {
+      monaco.languages.typescript.javascriptDefaults?.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+      });
+      monaco.languages.typescript.typescriptDefaults?.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false,
+      });
+    }
+
+    // Register Gitvox Studio Dark Theme matching VS Code / screenshot
+    monaco.editor.defineTheme('gitvox-studio-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: '', background: '0c1017', foreground: 'e2e8f0' },
+        { token: 'keyword', foreground: '38bdf8', fontStyle: 'bold' },
+        { token: 'keyword.control', foreground: '38bdf8', fontStyle: 'bold' },
+        { token: 'string', foreground: '34d399' },
+        { token: 'string.escape', foreground: '6ee7b7' },
+        { token: 'number', foreground: 'fbbf24' },
+        { token: 'comment', foreground: '64748b', fontStyle: 'italic' },
+        { token: 'type', foreground: 'a78bfa' },
+        { token: 'type.identifier', foreground: 'c084fc' },
+        { token: 'function', foreground: '67e8f9' },
+        { token: 'identifier', foreground: 'f1f5f9' },
+        { token: 'variable', foreground: 'e2e8f0' },
+        { token: 'variable.parameter', foreground: 'cbd5e1' },
+        { token: 'operator', foreground: '38bdf8' },
+        { token: 'delimiter', foreground: '94a3b8' },
+        { token: 'delimiter.bracket', foreground: '38bdf8' },
+      ],
+      colors: {
+        'editor.background': '#0c1017',
+        'editor.foreground': '#e2e8f0',
+        'editorLineNumber.foreground': '#475569',
+        'editorLineNumber.activeForeground': '#38bdf8',
+        'editor.lineHighlightBackground': '#131b29',
+        'editor.lineHighlightBorder': '#1e293b00',
+        'editor.selectionBackground': '#1e293b',
+        'editor.inactiveSelectionBackground': '#1e293b80',
+        'editorCursor.foreground': '#38bdf8',
+        'editorWhitespace.foreground': '#334155',
+        'editorIndentGuide.background': '#1e293b',
+        'editorIndentGuide.activeBackground': '#38bdf840',
+        'editorGutter.background': '#0c1017',
+        'editorWidget.background': '#0f172a',
+        'editorWidget.border': '#334155',
+        'editorError.foreground': '#f87171',
+        'editorWarning.foreground': '#fbbf24',
+        'editorInfo.foreground': '#38bdf8',
+      },
+    });
+  };
+
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     editor.onDidChangeCursorPosition((e) => {
       setCursorPosition({ line: e.position.lineNumber, col: e.position.column });
     });
+    if (activeFile) {
+      runDiagnostics(activeFile.content, activeFile.path);
+    }
   };
 
   return (
@@ -356,10 +661,10 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
           </aside>
 
           {/* Central Workspace Area */}
-          <section className="flex-1 flex flex-col bg-surface min-w-0 relative">
-            {/* Top Tab Bar */}
-            <div className="h-10 bg-surface-container-low flex items-center justify-between px-space-xs select-none border-b border-surface-container-high/60">
-              <div className="flex items-center h-full space-x-1 overflow-x-auto">
+          <section className="flex-1 flex flex-col bg-[#0c1017] min-w-0 relative">
+            {/* Top Tab Bar (Matching VS Code / Image style) */}
+            <div className="h-10 bg-[#080b11] flex items-center justify-between px-space-xs select-none border-b border-surface-container-high/60">
+              <div className="flex items-center h-full space-x-0.5 overflow-x-auto">
                 {!sidebarOpen && (
                   <button
                     onClick={() => setSidebarOpen(true)}
@@ -378,35 +683,52 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                     <div
                       key={filePath}
                       onClick={() => onSelectFile(filePath)}
-                      className={`h-full px-space-md flex items-center gap-space-sm cursor-pointer shadow-sm relative group transition-colors ${
+                      className={`h-full px-space-md flex items-center gap-2 cursor-pointer relative group transition-colors border-r border-surface-container-high/30 ${
                         isCurrent
-                          ? 'bg-surface text-on-surface'
-                          : 'hover:bg-surface-container text-on-surface-variant hover:text-on-surface'
+                          ? 'bg-[#0c1017] text-on-surface'
+                          : 'bg-[#080b11] hover:bg-[#0c1017]/70 text-on-surface-variant hover:text-on-surface'
                       }`}
                     >
-                      {isCurrent && (
-                        <span
-                          className="w-2 h-2 rounded-full bg-primary"
-                          title="Active File"
-                        ></span>
-                      )}
-                      <span className="material-symbols-outlined text-[16px] text-primary">javascript</span>
-                      <span className="font-telemetry-tag text-telemetry-tag font-semibold">{name}</span>
+                      {getFileIcon(filePath)}
+                      <span className={`font-telemetry-tag text-telemetry-tag ${isCurrent ? 'font-semibold text-white' : ''}`}>
+                        {name}
+                      </span>
                       <button
                         onClick={(e) => handleCloseTab(e, filePath)}
-                        className="material-symbols-outlined text-[14px] text-outline group-hover:text-on-surface transition-colors ml-1 p-0.5"
+                        className="material-symbols-outlined text-[13px] text-outline group-hover:text-on-surface transition-colors ml-1 p-0.5 rounded hover:bg-surface-container"
                         type="button"
+                        title="Close tab"
                       >
                         close
                       </button>
-                      {isCurrent && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
+                      {isCurrent && (
+                        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]"></div>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
               {/* Editor View Action Icons */}
-              <div className="flex items-center gap-space-xs text-on-surface-variant px-space-sm">
+              <div className="flex items-center gap-1 text-on-surface-variant px-space-sm">
+                <button
+                  onClick={handleUndo}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors font-telemetry-tag text-[11px] cursor-pointer"
+                  title="Undo (Ctrl+Z)"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[15px]">undo</span>
+                  <span>Undo</span>
+                </button>
+                <button
+                  onClick={handleRedo}
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors font-telemetry-tag text-[11px] cursor-pointer"
+                  title="Redo (Ctrl+Y)"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[15px]">redo</span>
+                </button>
+                <div className="h-4 w-px bg-surface-container-high mx-1"></div>
                 <button
                   onClick={() => setWordWrap((prev) => !prev)}
                   className={`p-1 rounded transition-colors cursor-pointer ${
@@ -451,18 +773,22 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
             </div>
 
             {/* Editor Canvas Area with Full Sliding Capability */}
-            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden bg-surface relative">
+            <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden bg-[#0c1017] relative">
               {/* Monaco Editor Container */}
               <div className="flex-1 min-h-0 min-w-0 relative w-full h-full">
                 <Editor
                   height="100%"
                   language={getMonacoLanguage(activeFile.path)}
-                  theme="vs-dark"
+                  theme="gitvox-studio-dark"
                   value={activeFile.content}
+                  beforeMount={handleEditorBeforeMount}
                   onMount={handleEditorDidMount}
                   onChange={(val) => {
-                    if (val !== undefined && onUpdateFileContent) {
-                      onUpdateFileContent(activeFile.path, val);
+                    if (val !== undefined) {
+                      if (onUpdateFileContent) {
+                        onUpdateFileContent(activeFile.path, val);
+                      }
+                      runDiagnostics(val, activeFile.path);
                     }
                   }}
                   options={{
@@ -494,7 +820,7 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
             </div>
 
             {/* BOTTOM CODE STATUS BAR (VS Code Authentic Look) */}
-            <footer className="h-7 bg-surface-container-high px-space-md flex items-center justify-between font-telemetry-tag text-[11px] text-on-surface-variant z-10 select-none border-t border-surface-container-highest/60">
+            <footer className="h-7 bg-[#080b11] px-space-md flex items-center justify-between font-telemetry-tag text-[11px] text-on-surface-variant z-10 select-none border-t border-surface-container-highest/60">
               {/* Left Metas: Git & AST Diagnostics */}
               <div className="flex items-center gap-space-md">
                 <div className="flex items-center gap-1 text-on-surface hover:text-primary transition-colors cursor-pointer">
@@ -505,10 +831,24 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
                   <span className="material-symbols-outlined text-[14px] text-primary">sync</span>
                   <span>0 ↓ 1 ↑</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-primary">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                  <span>AST CLEAN</span>
-                </div>
+
+                {diagnostics.length > 0 ? (
+                  <div
+                    onClick={() => handleJumpToError(diagnostics[0])}
+                    className="flex items-center gap-1.5 text-error font-semibold cursor-pointer px-2 py-0.5 rounded bg-error/15 border border-error/30 hover:bg-error/25 transition-all"
+                    title={`Click to jump to line ${diagnostics[0].startLineNumber}: ${diagnostics[0].message}`}
+                  >
+                    <span className="material-symbols-outlined text-[14px] text-error animate-pulse">error</span>
+                    <span>
+                      {diagnostics.length} {diagnostics.length === 1 ? 'Error' : 'Errors'} • Ln {diagnostics[0].startLineNumber}: {diagnostics[0].message}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>0 Errors • AST CLEAN</span>
+                  </div>
+                )}
               </div>
 
               {/* Right Metas: Encoding, Language & Telemetry */}

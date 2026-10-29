@@ -11,6 +11,7 @@ import {
   parseZipArchiveBytes,
 } from './fileParser';
 import { routeApplicationCommand } from './commandRouter';
+import { checkCodeSyntax } from '../pages/ProjectWorkspacePage';
 
 test('Sample PR #284 genuine LCS diffs match exact +86 additions and -24 deletions across 5 files', () => {
   assert.equal(SAMPLE_PULL_REQUEST.number, 284);
@@ -181,4 +182,47 @@ test('Phase 3 voice/text commands route to PR, file, and line-range actions', ()
 
   const invalidRange = routeApplicationCommand('Explain code from line 0 to line 5', context);
   assert.equal(invalidRange.recognized, false);
+});
+
+test('checkCodeSyntax accurately detects syntax errors and clears them when corrected', () => {
+  // 1. Valid JavaScript code produces 0 errors
+  const validJs = `
+    import jwt from 'jsonwebtoken';
+    export const authenticateUser = async (req, res, next) => {
+      const auth = req.headers.authorization;
+      if (!auth) {
+        return res.status(401).json({ error: 'unauthorized' });
+      }
+      return next();
+    };
+  `;
+  const cleanResults = checkCodeSyntax(validJs, 'javascript');
+  assert.equal(cleanResults.length, 0);
+
+  // 2. Unclosed brace '{' triggers an error
+  const brokenJs = `
+    export const testFn = () => {
+      const a = 1;
+  `;
+  const errorResults = checkCodeSyntax(brokenJs, 'javascript');
+  assert.equal(errorResults.length, 1);
+  assert.match(errorResults[0].message, /unclosed/i);
+
+  // 3. Fixing the code clears the error
+  const fixedJs = brokenJs + '\n};\n';
+  const resolvedResults = checkCodeSyntax(fixedJs, 'javascript');
+  assert.equal(resolvedResults.length, 0);
+
+  // 4. Unterminated string literal triggers an error
+  const unterminatedString = `const token = 'bearer 123;`;
+  const stringErrors = checkCodeSyntax(unterminatedString, 'javascript');
+  assert.equal(stringErrors.length, 1);
+  assert.match(stringErrors[0].message, /unterminated string/i);
+
+  // 5. JSON validation
+  const validJson = '{\n  "name": "gitvox",\n  "version": "2.4.0"\n}';
+  assert.equal(checkCodeSyntax(validJson, 'json').length, 0);
+
+  const brokenJson = '{\n  "name": "gitvox",\n}'; // trailing comma
+  assert.equal(checkCodeSyntax(brokenJson, 'json').length, 1);
 });
