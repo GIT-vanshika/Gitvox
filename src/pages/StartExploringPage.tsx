@@ -334,48 +334,13 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
             )}
 
             {/* Top Section & Visual Header Area */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-space-lg">
-              <div className="flex flex-col gap-space-sm max-w-3xl">
-                {/* Telemetry Pill / Badge */}
-                <div className="flex items-center gap-space-xs self-start px-space-md py-1 rounded-full bg-surface-container-high border border-surface-container-highest shadow-inner">
-                  <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-                  <span className="font-telemetry-tag text-telemetry-tag text-tertiary tracking-widest font-semibold uppercase">
-                    WORKSPACE INITIALIZATION
-                  </span>
-                  <span className="text-outline-variant font-telemetry-tag text-[10px]">///</span>
-                  <span className="font-telemetry-tag text-telemetry-tag text-on-surface-variant">SANDBOX V2.4</span>
-                </div>
-                <h1 className="font-headline-lg text-headline-lg md:text-[34px] md:leading-[42px] font-bold text-on-surface tracking-tight">
-                  Choose how to load source code into Gitvox
-                </h1>
-                <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
-                  All uploaded files and archives are parsed statically in browser memory. Gitvox never executes uploaded code, never runs scripts, and never installs project dependencies.
-                </p>
-              </div>
-
-              {/* Security / Memory Protocol Stats Card */}
-              <div className="flex items-center gap-space-md p-space-md rounded-xl bg-surface-container-low border border-surface-container-high/60 shadow-sm">
-                <div className="flex flex-col">
-                  <span className="font-telemetry-tag text-telemetry-tag text-outline uppercase tracking-wider text-[10px]">
-                    EXECUTION MODE
-                  </span>
-                  <span className="font-code-block text-code-block font-semibold text-primary">
-                    WASM_LOCAL_ONLY
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-surface-container-high"></div>
-                <div className="flex flex-col">
-                  <span className="font-telemetry-tag text-telemetry-tag text-outline uppercase tracking-wider text-[10px]">
-                    NETWORK OUTBOUND
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                    <span className="font-code-block text-code-block font-semibold text-secondary">
-                      AIRGAPPED (0 KB)
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-col gap-space-sm max-w-3xl">
+              <h1 className="font-headline-lg text-headline-lg md:text-[34px] md:leading-[42px] font-bold text-on-surface tracking-tight">
+                Choose how to load source code into Gitvox
+              </h1>
+              <p className="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                All uploaded files and archives are parsed statically in browser memory. Gitvox never executes uploaded code, never runs scripts, and never installs project dependencies.
+              </p>
             </div>
 
             {/* Acoustic Waveform Stream Divider */}
@@ -702,41 +667,14 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
               </div>
             </div>
 
-            {/* Terminal Command Line Fallback Indicator */}
-            <div className="p-space-md rounded-xl bg-surface-container-lowest border border-surface-container-high/60 font-code-block text-[12px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-sm text-outline">
-              <div className="flex items-center gap-space-sm">
-                <span className="text-primary font-bold">gitvox ~$</span>
-                <span className="text-on-surface-variant">gitvox ingest --target=memory --sanitize=strict --voice-hub=online</span>
-              </div>
-              <div className="flex items-center gap-space-sm font-telemetry-tag text-telemetry-tag text-on-surface-variant">
-                <span>STATUS: READY</span>
-                <span className="text-outline-variant">•</span>
-                <span className="text-tertiary">AUDIO ENGINE: IDLE (16kHz)</span>
-              </div>
-            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="w-full bg-surface-container-lowest border-t border-surface-container-high/60 py-space-md">
-        <div className="max-w-7xl mx-auto px-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-sm font-body-sm text-body-sm text-on-surface-variant">
-          <div className="flex items-center gap-space-md">
-            <div className="flex items-center gap-1.5 font-telemetry-tag text-telemetry-tag">
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              <span>ENGINE LATENCY</span>
-              <span className="text-secondary font-semibold">~14ms</span>
-            </div>
-            <span className="text-outline-variant font-telemetry-tag">•</span>
-            <div className="flex items-center gap-1 font-telemetry-tag text-telemetry-tag text-on-surface-variant">
-              <span className="material-symbols-outlined text-[14px] text-tertiary">shield_lock</span>
-              <span>E2E ZERO-RETENTION PRIVACY</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-space-md font-telemetry-tag text-telemetry-tag">
-            <span className="text-outline">LOCAL_MODE // READY</span>
-            <span>© 2026 GITVOX INTEL</span>
-          </div>
+        <div className="max-w-7xl mx-auto px-space-lg flex items-center justify-between font-body-sm text-body-sm text-on-surface-variant">
+          <span>© 2026 GITVOX INTEL</span>
         </div>
       </footer>
     </div>
