@@ -17,7 +17,7 @@ export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
 export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
 
 export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
-export const GEMINI_DEFAULT_MODEL = 'gemini-1.5-flash';
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash';
 
 const MAX_FILE_CONTEXT_CHARS = 12_000;
 const MAX_HUNK_LINES = 400;

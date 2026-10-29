@@ -2,7 +2,7 @@
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
 var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
 var GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
-var GEMINI_DEFAULT_MODEL = "gemini-1.5-flash";
+var GEMINI_DEFAULT_MODEL = "gemini-3.5-flash";
 function readEnv(name) {
   const direct = process.env[name];
   if (direct && direct.trim().length > 0) return direct.trim();

@@ -191,7 +191,7 @@ test('getModelConfig auto-detects Gemini and falls back to OpenRouter correctly'
   process.env.GEMINI_API_KEY = 'AIzaSy-test-gemini-key';
   const geminiConfig = getModelConfig();
   assert.equal(geminiConfig.providerLabel, 'Google Gemini');
-  assert.equal(geminiConfig.model, 'gemini-1.5-flash');
+  assert.equal(geminiConfig.model, 'gemini-3.5-flash');
   assert.ok(geminiConfig.baseUrl.includes('googleapis.com'));
 
   // Clean up
