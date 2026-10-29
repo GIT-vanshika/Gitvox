@@ -225,10 +225,17 @@ function buildModelPrompt(input) {
   };
 }
 function extractMessageText(response) {
-  const content = response.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content.trim();
+  const choice = response.choices?.[0];
+  const message = choice?.message;
+  const content = message?.content;
+  if (typeof content === "string" && content.trim().length > 0) return content.trim();
   if (Array.isArray(content)) {
-    return content.map((part) => part && typeof part.text === "string" ? part.text : "").join("").trim();
+    const text = content.map((part) => part && typeof part.text === "string" ? part.text : "").join("").trim();
+    if (text.length > 0) return text;
+  }
+  const reasoning = message?.reasoning;
+  if (typeof reasoning === "string" && reasoning.trim().length > 0) {
+    return reasoning.trim();
   }
   return "";
 }
@@ -314,7 +321,7 @@ async function callModelChat(messages, config = getModelConfig(), options = {}) 
       body: JSON.stringify({
         model: config.model,
         messages,
-        temperature: 0.2,
+        temperature: 0.3,
         max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
         stream: false
       }),

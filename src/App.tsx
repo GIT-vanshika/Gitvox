@@ -425,7 +425,8 @@ export function App() {
       const explanation = await explainAssistantWithModel(built.request);
       setSystemStatus('Completed');
       return { kind: 'answer', title: built.title, explanation };
-    } catch (_error) {
+    } catch (liveError) {
+      console.warn('[handleVoiceRequest] Live model call failed, falling back to grounded local engine:', liveError);
       try {
         const localExplanation = generateGroundedLocalExplanation(transcript);
         setSystemStatus('Completed');

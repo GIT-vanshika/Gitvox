@@ -23,7 +23,7 @@ const MAX_FUNCTIONS = 100;
 const PR_CONTENT_CHARS = 7_000;
 const FILE_CONTENT_CHARS = 20_000;
 const RANGE_CONTENT_CHARS = 16_000;
-const ASSISTANT_MAX_OUTPUT_TOKENS = 1_400;
+const ASSISTANT_MAX_OUTPUT_TOKENS = 2_500;
 
 const ACTIONS: AssistantAction[] = [
   'explain-pr',
@@ -272,13 +272,14 @@ function numberedContent(content: string, startLine: number, endLine: number, ma
 }
 
 function formatFunctionMap(file: AssistantFileContext, selectedName?: string): string {
-  if (file.functions.length === 0) return 'No function boundaries were supplied for this file.';
-  const lines = file.functions.slice(0, 40).map((fn) => {
+  const fns = Array.isArray(file.functions) ? file.functions : [];
+  if (fns.length === 0) return 'No function boundaries were supplied for this file.';
+  const lines = fns.slice(0, 40).map((fn) => {
     const marker = selectedName && fn.name === selectedName ? ' (selected)' : '';
     return `- ${fn.name}${marker} · L${fn.startLine}–L${fn.endLine} · ${fn.signature} — ${fn.summary}`;
   });
-  if (file.functions.length > 40) {
-    lines.push(`- ... ${file.functions.length - 40} additional functions omitted`);
+  if (fns.length > 40) {
+    lines.push(`- ... ${fns.length - 40} additional functions omitted`);
   }
   return lines.join('\n');
 }
@@ -326,43 +327,27 @@ function actionInstruction(action: AssistantAction): string {
     case 'check-pr-errors':
       return [
         'Audit this pull request for bugs, errors, and breaking changes before merging or accepting.',
-        '1. Verdict: state clearly whether this PR is Safe to Merge, Needs Changes, or Critical Issues Found.',
-        '2. Potential Bugs & Logic Errors: identify logic flaws, type mismatches, unhandled null/undefined, race conditions, or broken state.',
-        '3. API/Breaking Changes: check if exported interfaces, route signatures, or database schemas break backwards compatibility.',
-        '4. Edge Cases & Missing Error Handling: list unhandled exceptions, network failures, timeouts, or invalid payloads.',
-        '5. Recommended Fixes: provide specific, actionable code recommendations.',
-        'Aim for 400–650 words. Use ## headings, severity labels ([CRITICAL], [WARNING], [NOTE]), and quote suspect lines.',
+        'Provide a clear Verdict, list Potential Bugs citing line numbers, check for API/Breaking Changes, and provide concrete Recommended Fixes.',
+        'Format cleanly in Markdown with ## headings and bullet points.',
       ].join('\n');
     case 'check-security':
       return [
-        'Perform a comprehensive security audit on the supplied code and diffs.',
-        '1. Security Posture Summary: overall risk assessment (Low, Medium, High, Critical).',
-        '2. Vulnerability Scan: check for common vulnerabilities including:',
-        '   - Hardcoded secrets, API keys, credentials, or tokens.',
-        '   - Timing attacks (e.g. non-constant-time comparisons for HMAC/crypto hashes).',
-        '   - Injection flaws (SQL, command, XSS, template injection, prototype pollution).',
-        '   - Insecure token/session handling, missing signature checks, weak algorithm fallbacks.',
-        '   - Insecure defaults, permissive CORS, path traversal, or privilege escalation.',
-        '3. Concrete Findings: for each issue, specify the file, approximate line range, vulnerability type, and impact.',
-        '4. Remediation Steps: provide the exact secure coding pattern to replace the vulnerable implementation.',
-        'Aim for 400–700 words. Use ## headings, severity tags, and short > blockquotes for code citations.',
+        'Perform a comprehensive security audit on the supplied code and diffs to identify every vulnerability, flaw, and risk.',
+        'Check for hardcoded secrets, injection flaws, timing attacks, authentication or authorization issues, and insecure defaults.',
+        'Specify the file, line range, and impact for each issue, followed by concrete remediation code.',
+        'Format cleanly in Markdown with ## headings and bullet points.',
       ].join('\n');
     case 'check-file-errors':
       return [
         'Inspect this file for bugs, harmful patterns, and edge-case errors.',
-        '1. File Health: overall assessment of code quality and stability.',
-        '2. Potential Bugs: identify logic errors, unhandled exceptions, resource leaks, or missing input validation.',
-        '3. Harmful or Risky Patterns: highlight code that could cause crashes, infinite loops, memory leaks, or unhandled promise rejections.',
-        '4. Concrete Line References: reference specific functions and line numbers for each issue identified.',
-        '5. Corrective Action: suggest concrete improvements.',
-        'Aim for 350–600 words. Use ## headings and bullet points.',
+        'Provide an assessment of File Health, describe Potential Bugs or logic errors citing line numbers, and provide concrete Corrective Action.',
+        'Format cleanly in Markdown with ## headings and bullet points.',
       ].join('\n');
     case 'ask-repo':
       return [
         'Answer the user\'s repository question with precision using the supplied codebase, PR, and file context.',
-        'Base your answer directly on the code and metadata provided. Cite specific files, functions, and lines where relevant.',
-        'If the code does not provide enough evidence to answer fully, explicitly note what is missing.',
-        'Aim for 200–500 words. Use ## headings, bullet lists, and code citations.',
+        'Base your answer directly on the code and metadata provided. Cite specific files, functions, and line numbers where relevant.',
+        'Format cleanly in Markdown with ## headings and bullet points.',
       ].join('\n');
   }
 }
