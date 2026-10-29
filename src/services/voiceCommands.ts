@@ -188,23 +188,31 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     };
   }
 
-  // ── Line-range requests (highest specificity) ──
-  if (LINE_WORD_PATTERN.test(normalized)) {
-    const range = extractLineRange(normalized);
-    if (range.ok) {
-      return {
-        kind: 'explain-range',
-        startLine: range.range.startLine,
-        endLine: range.range.endLine,
-        transcript,
-        normalized,
-      };
-    }
+  // ── Line-range requests (highest specificity when valid numbers are provided) ──
+  const lineRange = extractLineRange(normalized);
+  if (lineRange.ok) {
+    return {
+      kind: 'explain-range',
+      startLine: lineRange.range.startLine,
+      endLine: lineRange.range.endLine,
+      transcript,
+      normalized,
+    };
+  }
+
+  // Only ask for line clarification if the user explicitly spoke a line command without numbers
+  // (e.g. "Explain lines" or "Explain line 20" with no end), NOT when asking questions or about errors.
+  const isExplicitLineCommand =
+    !ERROR_PATTERN.test(normalized) &&
+    !/\b(which|what|where|why|how|who|is|are|does|do|can|could|has|have)\b/.test(normalized) &&
+    /^(?:explain|describe|go through)\s+(?:the\s+)?(?:code\s+)?(?:from\s+)?(?:this\s+)?(?:line|lines)\b/.test(normalized);
+
+  if (isExplicitLineCommand) {
     return {
       kind: 'clarify',
-      reason: range.reason,
+      reason: lineRange.reason,
       message:
-        range.reason === 'missing-end'
+        lineRange.reason === 'missing-end'
           ? 'I heard a line but not a full range. Say both lines, for example "Explain lines 20 to 35".'
           : 'I heard a request about lines but could not read the numbers reliably. Say, for example, "Explain lines 20 to 35".',
       transcript,
@@ -267,7 +275,13 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
     return { kind: 'summarize-pr', transcript, normalized };
   }
 
-  // ── Bare explain verb without target ──
+  // ── Freeform repo question / code intelligence: route to AI as ask-repo ──
+  const isQuestion = /\b(what|how|why|where|when|who|which|is|are|does|do|can|could|should|would|will|has|have|did)\b/.test(normalized);
+  if ((isQuestion || ERROR_PATTERN.test(normalized)) && normalized.split(' ').length >= 3) {
+    return { kind: 'ask-repo', transcript, normalized };
+  }
+
+  // ── Bare explain verb without target (e.g. "Explain this") ──
   if (EXPLAIN_VERB_PATTERN.test(normalized)) {
     return {
       kind: 'clarify',
@@ -276,12 +290,6 @@ export function interpretVoiceTranscript(transcript: string): VoiceCommandMatch 
       transcript,
       normalized,
     };
-  }
-
-  // ── Freeform repo question: route to AI as ask-repo ──
-  const isQuestion = /\b(what|how|why|where|when|who|which|is|are|does|do|can|could|should|would|will|has|have|did)\b/.test(normalized);
-  if (isQuestion && normalized.split(' ').length >= 3) {
-    return { kind: 'ask-repo', transcript, normalized };
   }
 
   return {

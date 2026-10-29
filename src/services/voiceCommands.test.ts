@@ -125,6 +125,10 @@ test('freeform repo questions route to ask-repo', () => {
     'What dependencies does this project use?',
     'Why is crypto used instead of jsonwebtoken?',
     'Where is the authentication router configured?',
+    'Which line contains the error?',
+    'Which line has any error?',
+    'What line is the bug on?',
+    'Explain what this route does',
   ]) {
     const match = interpretVoiceTranscript(phrase);
     assert.equal(match.kind, 'ask-repo', phrase);
