@@ -731,7 +731,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center gap-space-md">
             <span className="font-telemetry-tag text-telemetry-tag text-on-surface-variant">
-              © 2025 Gitvox. Modern Conversational Dev.
+              Gitvox. Modern Conversational Dev.
             </span>
           </div>
         </div>

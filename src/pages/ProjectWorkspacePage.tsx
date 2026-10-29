@@ -751,28 +751,6 @@ export const ProjectWorkspacePage: React.FC<ProjectWorkspacePageProps> = ({
           </section>
         </div>
       </main>
-
-      {/* Telemetry Footer */}
-      <footer className="w-full bg-surface-container-lowest py-2 shadow-[0_-1px_8px_rgba(0,0,0,0.04)] border-t border-surface-container-high/60">
-        <div className="w-full px-gutter flex flex-col sm:flex-row items-center justify-between gap-space-sm font-body-sm text-body-sm text-on-surface-variant">
-          <div className="flex items-center gap-space-md">
-            <div className="flex items-center gap-1.5 font-telemetry-tag text-telemetry-tag">
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              <span>ENGINE LATENCY</span>
-              <span className="text-secondary font-semibold">~14ms</span>
-            </div>
-            <span className="text-outline-variant font-telemetry-tag">•</span>
-            <div className="flex items-center gap-1 font-telemetry-tag text-telemetry-tag text-on-surface-variant">
-              <span className="material-symbols-outlined text-[14px] text-secondary">shield_lock</span>
-              <span>E2E ZERO-RETENTION PRIVACY</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-space-md font-telemetry-tag text-telemetry-tag">
-            <span className="text-outline">LOCAL_MODE // READY</span>
-            <span>© 2025 GITVOX INTEL</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

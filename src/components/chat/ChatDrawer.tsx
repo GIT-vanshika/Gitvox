@@ -354,7 +354,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-[rgba(0,0,0,0.65)]"
+      className="fixed inset-0 z-50 flex justify-end bg-transparent"
       onClick={onClose}
     >
       <div
@@ -362,7 +362,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         aria-modal="true"
         aria-label="Gitvox assistant"
         onClick={(event) => event.stopPropagation()}
-        className="chat-drawer flex h-full max-h-[100dvh] w-full max-w-full flex-col border-l border-line bg-page sm:max-w-[440px]"
+        className="chat-drawer flex h-full max-h-[100dvh] w-full max-w-full flex-col border-l border-line bg-page sm:max-w-[440px] shadow-[-16px_0_48px_rgba(0,0,0,0.55)]"
       >
         <header className="flex items-center justify-between gap-3 border-b border-line bg-[var(--bg-subtle)] px-4 py-3">
           <div>
