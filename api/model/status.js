@@ -1,9 +1,16 @@
 // server/modelClient.ts
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
-var DEFAULT_MODEL_NAME = "qwen/qwen-2.5-coder-32b-instruct";
+var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
 function readEnv(name) {
-  const value = process.env[name];
-  return value && value.trim().length > 0 ? value.trim() : void 0;
+  const direct = process.env[name];
+  if (direct && direct.trim().length > 0) return direct.trim();
+  const lower = name.toLowerCase();
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.toLowerCase() === lower && value && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return void 0;
 }
 function getModelConfig() {
   const baseUrl = (readEnv("MODEL_BASE_URL") || DEFAULT_MODEL_BASE_URL).replace(/\/+$/, "");

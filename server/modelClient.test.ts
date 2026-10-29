@@ -19,7 +19,7 @@ const validPayload = buildExplainRequest(SAMPLE_PULL_REQUEST, sampleFile, sample
 const testConfig: ModelConfig = {
   apiKey: 'test-server-key',
   baseUrl: 'http://127.0.0.1:9999/v1',
-  model: 'qwen/qwen-2.5-coder-32b-instruct',
+  model: 'cohere/north-mini-code:free',
   providerLabel: 'Test Provider',
   timeoutMs: 5_000,
   maxOutputTokens: 700,
@@ -80,7 +80,7 @@ test('requestModelExplanation sends the server-held credential and returns provi
   const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(input), init });
     return jsonResponse({
-      model: 'qwen/qwen-2.5-coder-32b-instruct',
+      model: 'cohere/north-mini-code:free',
       choices: [{ message: { content: modelText } }],
       usage: { prompt_tokens: 900, completion_tokens: 80, total_tokens: 980 },
     });
@@ -89,7 +89,7 @@ test('requestModelExplanation sends the server-held credential and returns provi
   const result = await requestModelExplanation(validPayload, testConfig, { fetchImpl });
 
   assert.equal(result.text, modelText);
-  assert.equal(result.model, 'qwen/qwen-2.5-coder-32b-instruct');
+  assert.equal(result.model, 'cohere/north-mini-code:free');
   assert.equal(result.provider, 'Test Provider');
   assert.equal(result.usage?.totalTokens, 980);
 
@@ -104,7 +104,7 @@ test('requestModelExplanation sends the server-held credential and returns provi
     stream: boolean;
     messages: Array<{ role: string; content: string }>;
   };
-  assert.equal(requestBody.model, 'qwen/qwen-2.5-coder-32b-instruct');
+  assert.equal(requestBody.model, 'cohere/north-mini-code:free');
   assert.equal(requestBody.stream, false);
   assert.ok(requestBody.messages.some((m) => m.content.includes('verifyAccessToken')));
   assert.ok(!JSON.stringify(requestBody).includes('test-server-key'));
@@ -129,7 +129,7 @@ test('requestModelExplanation never fabricates a response when the credential or
 
   const emptyContentFetch = (async () =>
     jsonResponse({
-      model: 'qwen/qwen-2.5-coder-32b-instruct',
+      model: 'cohere/north-mini-code:free',
       choices: [{ message: { content: '   ' } }],
     })) as typeof fetch;
 

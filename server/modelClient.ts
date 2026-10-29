@@ -8,13 +8,13 @@ import type {
  * Server-only integration with an OpenAI-compatible chat-completions endpoint.
  *
  * The default provider is OpenRouter and the default model is
- * Qwen2.5-Coder-32B-Instruct, whose weights are published under Apache-2.0.
+ * Cohere North Mini Code (free tier: cohere/north-mini-code:free).
  * Credentials are read exclusively from the server process environment and are
  * never returned to, or accepted from, the browser.
  */
 
 export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
-export const DEFAULT_MODEL_NAME = 'qwen/qwen-2.5-coder-32b-instruct';
+export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
 
 const MAX_FILE_CONTEXT_CHARS = 12_000;
 const MAX_HUNK_LINES = 400;
@@ -52,8 +52,15 @@ export interface ModelConfig {
 }
 
 function readEnv(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.trim().length > 0 ? value.trim() : undefined;
+  const direct = process.env[name];
+  if (direct && direct.trim().length > 0) return direct.trim();
+  const lower = name.toLowerCase();
+  for (const [key, value] of Object.entries(process.env)) {
+    if (key.toLowerCase() === lower && value && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return undefined;
 }
 
 export function getModelConfig(): ModelConfig {
