@@ -241,6 +241,13 @@ function getClientGeminiKey(): string | undefined {
   return undefined;
 }
 
+export const CLIENT_GEMINI_MODELS = [
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash-preview',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+];
+
 async function callDirectGemini(
   request: AssistantRequest,
   apiKey: string,
@@ -258,25 +265,12 @@ async function callDirectGemini(
   };
 
   const startedAt = Date.now();
-  let modelName = 'gemini-3.5-flash-lite';
+  let lastError: Error | null = null;
 
   try {
-    let res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: modelName,
-        messages,
-        temperature: 0.3,
-        max_tokens: 2500,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok && (res.status === 429 || res.status === 503)) {
-      modelName = 'gemini-3.5-flash';
+    for (const modelName of CLIENT_GEMINI_MODELS) {
       try {
-        const fallbackRes = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -287,55 +281,56 @@ async function callDirectGemini(
           }),
           signal: controller.signal,
         });
-        if (fallbackRes.ok) {
-          res = fallbackRes;
+
+        if (res.ok) {
+          const data = (await res.json()) as {
+            choices?: Array<{ message?: { content?: string } }>;
+            usage?: ModelExplanation['usage'];
+          };
+          const content = data.choices?.[0]?.message?.content;
+          if (content && typeof content === 'string') {
+            return {
+              text: content,
+              model: modelName,
+              provider: 'Google Gemini',
+              usage: data.usage,
+              latencyMs: Date.now() - startedAt,
+              generatedAt: new Date().toISOString(),
+              truncatedContext: truncated,
+            };
+          }
         }
-      } catch {
-        // Fallback network error; keep original response
+
+        // Capture model failure (e.g. 503 high load or 429 quota) and cascade to next model
+        let msg = `Gemini returned HTTP ${res.status}`;
+        try {
+          const errJson = (await res.json()) as { error?: { message?: string } };
+          if (errJson.error?.message) {
+            msg = errJson.error.message;
+          }
+        } catch {}
+
+        console.warn(`[callDirectGemini] Model ${modelName} returned HTTP ${res.status} (${msg}). Trying next fallback model...`);
+        const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exceeded');
+        lastError = new ModelServiceError({
+          code: res.status === 429 ? 'upstream_rate_limited' : 'upstream_error',
+          message: isQuota
+            ? 'Gemini API free tier quota limit reached. Switch models or update your Gemini key.'
+            : msg,
+          retryable: res.status === 429 || res.status >= 500,
+        });
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
     }
 
-    if (!res.ok) {
-      let msg = `Gemini returned HTTP ${res.status}`;
-      try {
-        const errJson = (await res.json()) as { error?: { message?: string } };
-        if (errJson.error?.message) {
-          msg = errJson.error.message;
-        }
-      } catch {}
-
-      const isQuota = msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('exceeded');
-      throw new ModelServiceError({
-        code: res.status === 429 ? 'upstream_rate_limited' : 'upstream_error',
-        message: isQuota
-          ? 'Gemini API free tier quota limit reached (20 requests/day). Switch models or update your Gemini key.'
-          : msg,
-        retryable: res.status === 429 || res.status >= 500,
-      });
-    }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: ModelExplanation['usage'];
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content || typeof content !== 'string') {
-      throw new ModelServiceError({
-        code: 'invalid_model_response',
-        message: 'Gemini returned an empty response.',
-        retryable: true,
-      });
-    }
-
-    return {
-      text: content,
-      model: modelName,
-      provider: 'Google Gemini',
-      usage: data.usage,
-      latencyMs: Date.now() - startedAt,
-      generatedAt: new Date().toISOString(),
-      truncatedContext: truncated,
-    };
+    if (lastError instanceof ModelServiceError) throw lastError;
+    throw new ModelServiceError({
+      code: 'upstream_error',
+      message: lastError ? lastError.message : 'All Gemini models in fallback fleet are currently busy.',
+      retryable: true,
+    });
   } catch (error) {
     if (error instanceof ModelServiceError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {

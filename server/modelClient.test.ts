@@ -191,7 +191,7 @@ test('getModelConfig auto-detects Gemini and falls back to OpenRouter correctly'
   process.env.GEMINI_API_KEY = 'AIzaSy-test-gemini-key';
   const geminiConfig = getModelConfig();
   assert.equal(geminiConfig.providerLabel, 'Google Gemini');
-  assert.equal(geminiConfig.model, 'gemini-3.5-flash-lite');
+  assert.equal(geminiConfig.model, 'gemini-3.1-flash-lite');
   assert.ok(geminiConfig.baseUrl.includes('googleapis.com'));
 
   // Test with space-separated variable name (e.g. "Gemini API key")
@@ -199,7 +199,7 @@ test('getModelConfig auto-detects Gemini and falls back to OpenRouter correctly'
   process.env['Gemini API key'] = 'AQ.Ab8RN6-test';
   const spacesConfig = getModelConfig();
   assert.equal(spacesConfig.providerLabel, 'Google Gemini');
-  assert.equal(spacesConfig.model, 'gemini-3.5-flash-lite');
+  assert.equal(spacesConfig.model, 'gemini-3.1-flash-lite');
   assert.equal(spacesConfig.apiKey, 'AQ.Ab8RN6-test');
 
   // Clean up

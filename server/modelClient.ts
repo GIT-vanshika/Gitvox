@@ -17,7 +17,14 @@ export const DEFAULT_MODEL_BASE_URL = 'https://openrouter.ai/api/v1';
 export const DEFAULT_MODEL_NAME = 'cohere/north-mini-code:free';
 
 export const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
-export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite';
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+
+export const GEMINI_MODEL_CASCADE = [
+  'gemini-3.1-flash-lite',
+  'gemini-3-flash-preview',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+];
 
 const MAX_FILE_CONTEXT_CHARS = 12_000;
 const MAX_HUNK_LINES = 400;
@@ -526,11 +533,12 @@ export async function callModelChat(
         : {}),
     };
 
+    let activeModel = config.model;
     let response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: requestHeaders,
       body: JSON.stringify({
-        model: config.model,
+        model: activeModel,
         messages,
         temperature: 0.3,
         max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
@@ -539,32 +547,41 @@ export async function callModelChat(
       signal: controller.signal,
     });
 
-    // Auto-fallback between Gemini Flash-Lite and Gemini Flash if one hits daily quota (429) or high demand (503)
-    if (!response.ok && config.baseUrl.includes('googleapis.com') && (response.status === 429 || response.status === 503)) {
-      const fallbackModel =
-        config.model === 'gemini-3.5-flash-lite'
-          ? 'gemini-3.5-flash'
-          : 'gemini-3.5-flash-lite';
-
-      console.warn(`[model] ${config.model} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
-      try {
-        const fallbackResponse = await fetchImpl(`${config.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: requestHeaders,
-          body: JSON.stringify({
-            model: fallbackModel,
-            messages,
-            temperature: 0.3,
-            max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
-            stream: false,
-          }),
-          signal: controller.signal,
-        });
-        if (fallbackResponse.ok) {
-          response = fallbackResponse;
+    // Auto-fallback cascade across available Gemini models if one hits daily quota (429), overload (503), or server errors (500/502/504/404)
+    if (
+      !response.ok &&
+      config.baseUrl.includes('googleapis.com') &&
+      (response.status === 429 ||
+        response.status === 503 ||
+        response.status === 500 ||
+        response.status === 502 ||
+        response.status === 504 ||
+        response.status === 404)
+    ) {
+      const remainingModels = GEMINI_MODEL_CASCADE.filter((m) => m !== activeModel);
+      for (const fallbackModel of remainingModels) {
+        console.warn(`[model] ${activeModel} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
+        try {
+          const fallbackResponse = await fetchImpl(`${config.baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: requestHeaders,
+            body: JSON.stringify({
+              model: fallbackModel,
+              messages,
+              temperature: 0.3,
+              max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
+              stream: false,
+            }),
+            signal: controller.signal,
+          });
+          if (fallbackResponse.ok) {
+            response = fallbackResponse;
+            activeModel = fallbackModel;
+            break;
+          }
+        } catch {
+          // Continue to next fallback model in cascade
         }
-      } catch {
-        // Retain original response if fallback fails
       }
     }
 
@@ -596,7 +613,7 @@ export async function callModelChat(
 
     return {
       text,
-      model: payload.model || config.model,
+      model: payload.model || activeModel || config.model,
       provider: config.providerLabel,
       usage: payload.usage
         ? {

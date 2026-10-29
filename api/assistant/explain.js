@@ -2,7 +2,13 @@
 var DEFAULT_MODEL_BASE_URL = "https://openrouter.ai/api/v1";
 var DEFAULT_MODEL_NAME = "cohere/north-mini-code:free";
 var GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
-var GEMINI_DEFAULT_MODEL = "gemini-3.5-flash-lite";
+var GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite";
+var GEMINI_MODEL_CASCADE = [
+  "gemini-3.1-flash-lite",
+  "gemini-3-flash-preview",
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash"
+];
 var ModelError = class extends Error {
   constructor(code, message, httpStatus, retryable) {
     super(message);
@@ -153,11 +159,12 @@ async function callModelChat(messages, config = getModelConfig(), options = {}) 
         "X-Title": readEnv("MODEL_APP_NAME") || "Gitvox"
       } : {}
     };
+    let activeModel = config.model;
     let response = await fetchImpl(`${config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: requestHeaders,
       body: JSON.stringify({
-        model: config.model,
+        model: activeModel,
         messages,
         temperature: 0.3,
         max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
@@ -165,26 +172,30 @@ async function callModelChat(messages, config = getModelConfig(), options = {}) 
       }),
       signal: controller.signal
     });
-    if (!response.ok && config.baseUrl.includes("googleapis.com") && (response.status === 429 || response.status === 503)) {
-      const fallbackModel = config.model === "gemini-3.5-flash-lite" ? "gemini-3.5-flash" : "gemini-3.5-flash-lite";
-      console.warn(`[model] ${config.model} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
-      try {
-        const fallbackResponse = await fetchImpl(`${config.baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: requestHeaders,
-          body: JSON.stringify({
-            model: fallbackModel,
-            messages,
-            temperature: 0.3,
-            max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
-            stream: false
-          }),
-          signal: controller.signal
-        });
-        if (fallbackResponse.ok) {
-          response = fallbackResponse;
+    if (!response.ok && config.baseUrl.includes("googleapis.com") && (response.status === 429 || response.status === 503 || response.status === 500 || response.status === 502 || response.status === 504 || response.status === 404)) {
+      const remainingModels = GEMINI_MODEL_CASCADE.filter((m) => m !== activeModel);
+      for (const fallbackModel of remainingModels) {
+        console.warn(`[model] ${activeModel} returned HTTP ${response.status}. Retrying with fallback model ${fallbackModel}...`);
+        try {
+          const fallbackResponse = await fetchImpl(`${config.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: requestHeaders,
+            body: JSON.stringify({
+              model: fallbackModel,
+              messages,
+              temperature: 0.3,
+              max_tokens: options.maxOutputTokens ?? config.maxOutputTokens,
+              stream: false
+            }),
+            signal: controller.signal
+          });
+          if (fallbackResponse.ok) {
+            response = fallbackResponse;
+            activeModel = fallbackModel;
+            break;
+          }
+        } catch {
         }
-      } catch {
       }
     }
     if (!response.ok) {
@@ -212,7 +223,7 @@ async function callModelChat(messages, config = getModelConfig(), options = {}) 
     }
     return {
       text,
-      model: payload.model || config.model,
+      model: payload.model || activeModel || config.model,
       provider: config.providerLabel,
       usage: payload.usage ? {
         promptTokens: payload.usage.prompt_tokens,
