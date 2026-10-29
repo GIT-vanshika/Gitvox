@@ -225,4 +225,58 @@ test('checkCodeSyntax accurately detects syntax errors and clears them when corr
 
   const brokenJson = '{\n  "name": "gitvox",\n}'; // trailing comma
   assert.equal(checkCodeSyntax(brokenJson, 'json').length, 1);
+
+  // 6. Python validation: valid code vs missing colon vs bad indent
+  const validPython = `
+def calculate_metrics(items):
+    """Calculates summary metrics."""
+    total = 0
+    for item in items:
+        if item > 0:
+            total += item
+    return total
+  `;
+  assert.equal(checkCodeSyntax(validPython, 'main.py').length, 0);
+
+  const missingColonPy = `
+def process_data(val)
+    return val * 2
+  `;
+  const pyErrors = checkCodeSyntax(missingColonPy, 'process.py');
+  assert.equal(pyErrors.length, 1);
+  assert.match(pyErrors[0].message, /expected ':'/i);
+
+  // 7. C++ validation: valid code vs unclosed delimiter
+  const validCpp = `
+#include <iostream>
+#include <vector>
+
+int main() {
+    std::vector<int> numbers = {1, 2, 3};
+    for (int n : numbers) {
+        std::cout << n << std::endl;
+    }
+    return 0;
+}
+  `;
+  assert.equal(checkCodeSyntax(validCpp, 'server.cpp').length, 0);
+
+  const brokenCpp = `
+int main() {
+    int x = (10 + 20;
+    return x;
+}
+  `;
+  const cppErrors = checkCodeSyntax(brokenCpp, 'server.cpp');
+  assert.equal(cppErrors.length, 1);
+  assert.match(cppErrors[0].message, /mismatched|unclosed|syntax/i);
+
+  // 8. Rust validation: valid lifetimes and braces
+  const validRust = `
+fn get_str<'a>(s: &'a str) -> &'a str {
+    println!("Hello, {}!", s);
+    s
+}
+  `;
+  assert.equal(checkCodeSyntax(validRust, 'lib.rs').length, 0);
 });

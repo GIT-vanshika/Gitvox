@@ -9,202 +9,49 @@ import {
   SystemStatus,
 } from '../types/gitvox';
 
+import {
+  validateUniversalSyntax,
+  detectLanguageFromPath,
+  SyntaxDiagnostic,
+} from '../services/unifiedSyntaxEngine';
+
+export type { SyntaxDiagnostic };
+export const checkCodeSyntax = validateUniversalSyntax;
+
 const getMonacoLanguage = (filePath?: string): string => {
-  if (filePath?.endsWith('.json')) return 'json';
-  if (filePath?.endsWith('.ts') || filePath?.endsWith('.tsx')) return 'typescript';
-  if (filePath?.endsWith('.js') || filePath?.endsWith('.jsx') || filePath?.endsWith('.mjs')) return 'javascript';
-  if (filePath?.endsWith('.md')) return 'markdown';
-  if (filePath?.endsWith('.css')) return 'css';
-  if (filePath?.endsWith('.html')) return 'html';
-  return 'javascript';
+  return detectLanguageFromPath(filePath);
 };
 
 export const getFileIcon = (filePath: string) => {
-  if (filePath.endsWith('.json')) {
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith('.json')) {
     return <span className="font-code-block text-[12px] text-amber-400 font-bold">&#123;&#125;</span>;
   }
-  if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+  if (lower.endsWith('.py') || lower.endsWith('.pyw')) {
+    return <span className="material-symbols-outlined text-[15px] text-emerald-400">terminal</span>;
+  }
+  if (lower.endsWith('.cpp') || lower.endsWith('.cc') || lower.endsWith('.h') || lower.endsWith('.hpp') || lower.endsWith('.c')) {
+    return <span className="font-code-block text-[11px] text-blue-400 font-bold">C++</span>;
+  }
+  if (lower.endsWith('.rs')) {
+    return <span className="material-symbols-outlined text-[15px] text-amber-500">settings</span>;
+  }
+  if (lower.endsWith('.go')) {
+    return <span className="font-code-block text-[11px] text-cyan-400 font-bold">GO</span>;
+  }
+  if (lower.endsWith('.java')) {
+    return <span className="material-symbols-outlined text-[15px] text-red-400">coffee</span>;
+  }
+  if (lower.endsWith('.ts') || lower.endsWith('.tsx')) {
     return <span className="font-code-block text-[12px] text-cyan-400 font-bold">&lt;&gt;</span>;
   }
-  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.mjs')) {
+  if (lower.endsWith('.js') || lower.endsWith('.jsx') || lower.endsWith('.mjs')) {
     return <span className="material-symbols-outlined text-[15px] text-yellow-400">javascript</span>;
   }
-  if (filePath.endsWith('.md')) {
+  if (lower.endsWith('.md')) {
     return <span className="material-symbols-outlined text-[15px] text-slate-400">description</span>;
   }
   return <span className="material-symbols-outlined text-[15px] text-secondary">code</span>;
-};
-
-export interface SyntaxDiagnostic {
-  startLineNumber: number;
-  startColumn: number;
-  endLineNumber: number;
-  endColumn: number;
-  message: string;
-}
-
-export const checkCodeSyntax = (code: string, language: string): SyntaxDiagnostic[] => {
-  const errors: SyntaxDiagnostic[] = [];
-  if (!code) return errors;
-
-  if (language === 'json') {
-    try {
-      JSON.parse(code);
-    } catch (err: any) {
-      const match = err.message?.match(/position\s+(\d+)/i);
-      let line = 1;
-      let col = 1;
-      if (match) {
-        const pos = parseInt(match[1], 10);
-        const prefix = code.slice(0, pos);
-        const lines = prefix.split('\n');
-        line = lines.length;
-        col = lines[lines.length - 1].length + 1;
-      }
-      errors.push({
-        startLineNumber: line,
-        startColumn: col,
-        endLineNumber: line,
-        endColumn: col + 4,
-        message: err.message || 'JSON Syntax Error',
-      });
-    }
-    return errors;
-  }
-
-  if (language === 'javascript' || language === 'typescript') {
-    const stack: Array<{ char: string; line: number; col: number }> = [];
-    const lines = code.split('\n');
-    let inBlockComment = false;
-    let inTemplateLiteral = false;
-
-    for (let l = 0; l < lines.length; l++) {
-      const lineStr = lines[l];
-      let inString: string | null = null;
-      let isEscaped = false;
-
-      for (let c = 0; c < lineStr.length; c++) {
-        const char = lineStr[c];
-        const nextChar = lineStr[c + 1];
-
-        // Handle multi-line comment
-        if (inBlockComment) {
-          if (char === '*' && nextChar === '/') {
-            inBlockComment = false;
-            c++;
-          }
-          continue;
-        }
-
-        if (!inString && !inTemplateLiteral && char === '/' && nextChar === '*') {
-          inBlockComment = true;
-          c++;
-          continue;
-        }
-
-        // Handle single-line comment
-        if (!inString && !inTemplateLiteral && char === '/' && nextChar === '/') {
-          break;
-        }
-
-        // Handle template string
-        if (char === '`' && !isEscaped) {
-          inTemplateLiteral = !inTemplateLiteral;
-          continue;
-        }
-
-        if (inTemplateLiteral) {
-          if (char === '\\') {
-            isEscaped = !isEscaped;
-          } else {
-            isEscaped = false;
-          }
-          continue;
-        }
-
-        // Handle regular quotes
-        if (inString) {
-          if (isEscaped) {
-            isEscaped = false;
-          } else if (char === '\\') {
-            isEscaped = true;
-          } else if (char === inString) {
-            inString = null;
-          }
-          continue;
-        }
-
-        if (char === "'" || char === '"') {
-          inString = char;
-          continue;
-        }
-
-        // Track opening and closing brackets
-        if (char === '{' || char === '(' || char === '[') {
-          stack.push({ char, line: l + 1, col: c + 1 });
-        } else if (char === '}' || char === ')' || char === ']') {
-          const expected = char === '}' ? '{' : char === ')' ? '(' : '[';
-          if (stack.length === 0) {
-            errors.push({
-              startLineNumber: l + 1,
-              startColumn: c + 1,
-              endLineNumber: l + 1,
-              endColumn: c + 2,
-              message: `Unexpected closing '${char}' without opening bracket`,
-            });
-            return errors;
-          }
-          const top = stack.pop()!;
-          if (top.char !== expected) {
-            errors.push({
-              startLineNumber: l + 1,
-              startColumn: c + 1,
-              endLineNumber: l + 1,
-              endColumn: c + 2,
-              message: `Mismatched bracket: expected '${top.char === '{' ? '}' : top.char === '(' ? ')' : ']'}' but found '${char}'`,
-            });
-            return errors;
-          }
-        }
-      }
-
-      // Check for unclosed string on line
-      if (inString) {
-        errors.push({
-          startLineNumber: l + 1,
-          startColumn: lineStr.lastIndexOf(inString) + 1,
-          endLineNumber: l + 1,
-          endColumn: lineStr.length + 1,
-          message: `Unterminated string literal`,
-        });
-        return errors;
-      }
-    }
-
-    if (inTemplateLiteral) {
-      errors.push({
-        startLineNumber: lines.length,
-        startColumn: 1,
-        endLineNumber: lines.length,
-        endColumn: lines[lines.length - 1].length + 1,
-        message: 'Unterminated template literal (`)',
-      });
-      return errors;
-    }
-
-    if (stack.length > 0) {
-      const unclosed = stack.pop()!;
-      errors.push({
-        startLineNumber: unclosed.line,
-        startColumn: unclosed.col,
-        endLineNumber: unclosed.line,
-        endColumn: unclosed.col + 1,
-        message: `Unclosed delimiter '${unclosed.char}'`,
-      });
-    }
-  }
-
-  return errors;
 };
 
 interface ProjectWorkspacePageProps {
