@@ -1,10 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Loader2, MessageSquare, Mic, Send, Square, X } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageSquare, Mic, Send, Square, Volume2, VolumeX, X } from 'lucide-react';
 import {
   createSpeechRecognitionSession,
   isSpeechRecognitionSupported,
   type SpeechRecognitionSession,
 } from '../../services/speechRecognition';
+import {
+  cleanSpeechText,
+  extractSpokenSummary,
+  getBestNaturalVoice,
+  splitIntoSpeechChunks,
+} from '../../services/speechSynthesisService';
 import type { VoiceRequestResult } from '../../services/voiceAssistant';
 import { AssistantMarkdown } from '../voice/AssistantMarkdown';
 
@@ -75,6 +81,115 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const [textInput, setTextInput] = useState('');
   const [isSupported] = useState(() => isSpeechRecognitionSupported());
 
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [activeSpeakingId, setActiveSpeakingId] = useState<string | null>(null);
+  const [preferredVoice, setPreferredVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const speechUtterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
+  const speechHeartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const updateVoice = () => {
+      const best = getBestNaturalVoice();
+      if (best) setPreferredVoice(best);
+    };
+    updateVoice();
+    window.speechSynthesis.onvoiceschanged = updateVoice;
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  const stopSpeaking = () => {
+    if (speechHeartbeatRef.current) {
+      clearInterval(speechHeartbeatRef.current);
+      speechHeartbeatRef.current = null;
+    }
+    speechUtterancesRef.current = [];
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    setActiveSpeakingId(null);
+  };
+
+  const speakText = (text: string, messageId?: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    stopSpeaking();
+
+    const clean = cleanSpeechText(text);
+    if (!clean) return;
+
+    const chunks = splitIntoSpeechChunks(clean);
+    if (chunks.length === 0) return;
+
+    const chosenVoice = preferredVoice || getBestNaturalVoice();
+
+    const utterances = chunks.map((chunk, index) => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      if (chosenVoice) utterance.voice = chosenVoice;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      if (index === 0) {
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          if (messageId) setActiveSpeakingId(messageId);
+        };
+      }
+
+      const isLast = index === chunks.length - 1;
+      if (isLast) {
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setActiveSpeakingId(null);
+          if (speechHeartbeatRef.current) {
+            clearInterval(speechHeartbeatRef.current);
+            speechHeartbeatRef.current = null;
+          }
+          speechUtterancesRef.current = [];
+        };
+      }
+
+      utterance.onerror = (e) => {
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+          console.warn('SpeechSynthesis error:', e.error);
+        }
+        if (isLast) {
+          setIsSpeaking(false);
+          setActiveSpeakingId(null);
+          if (speechHeartbeatRef.current) {
+            clearInterval(speechHeartbeatRef.current);
+            speechHeartbeatRef.current = null;
+          }
+          speechUtterancesRef.current = [];
+        }
+      };
+
+      return utterance;
+    });
+
+    speechUtterancesRef.current = utterances;
+
+    speechHeartbeatRef.current = setInterval(() => {
+      if (
+        typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        window.speechSynthesis.speaking &&
+        !window.speechSynthesis.paused
+      ) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+
+    for (const u of utterances) {
+      window.speechSynthesis.speak(u);
+    }
+  };
+
   const sessionRef = useRef<SpeechRecognitionSession | null>(null);
   const requestHandlerRef = useRef(onVoiceRequest);
   const autoStartHandledRef = useRef(onAutoStartHandled);
@@ -113,11 +228,14 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     return `message-${messageIdRef.current}`;
   };
 
-  const appendMessage = (message: Omit<ChatMessage, 'id'>) => {
-    setMessages((current) => [...current, { ...message, id: nextMessageId() }]);
+  const appendMessage = (message: Omit<ChatMessage, 'id'> & { id?: string }): string => {
+    const id = message.id || nextMessageId();
+    setMessages((current) => [...current, { ...message, id }]);
+    return id;
   };
 
   const handleCancel = () => {
+    stopSpeaking();
     // 1. Invalidate in-flight response processing
     requestGenerationRef.current += 1;
     inFlightRef.current = false;
@@ -181,17 +299,23 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       if (generation !== requestGenerationRef.current || controller.signal.aborted) return;
 
       if (result.kind === 'answer') {
-        appendMessage({
+        const msgId = appendMessage({
           role: 'assistant',
           text: result.explanation.text,
           title: result.title,
         });
+
+        const synopsis = extractSpokenSummary(result.title, result.explanation.text);
+        if (synopsis) {
+          speakText(synopsis, msgId);
+        }
       } else if (result.kind === 'clarification') {
-        appendMessage({
+        const msgId = appendMessage({
           role: 'assistant',
           text: result.message,
           variant: 'clarification',
         });
+        speakText(result.message, msgId);
       } else {
         appendMessage({
           role: 'assistant',
@@ -222,6 +346,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   runRequestRef.current = runRequest;
 
   const startListening = () => {
+    stopSpeaking();
     if (!isSupported) {
       setVoiceStatus('unsupported');
       setVoiceError('Voice is unavailable in this browser. Please use text chat.');
@@ -258,6 +383,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
+      stopSpeaking();
       requestGenerationRef.current += 1;
       inFlightRef.current = false;
       if (abortControllerRef.current) {
@@ -295,6 +421,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   useEffect(() => {
     return () => {
+      stopSpeaking();
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
@@ -312,6 +439,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   };
 
   const handleMicClick = () => {
+    stopSpeaking();
     if (isThinking) {
       handleCancel();
       return;
@@ -400,9 +528,24 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                 Chat
               </button>
             </div>
+            {isSpeaking && (
+              <button
+                type="button"
+                onClick={stopSpeaking}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 text-[11px] font-mono border border-violet-500/30 transition-colors cursor-pointer"
+                title="Stop speaking"
+              >
+                <Volume2 className="h-3 w-3 text-accent animate-pulse" />
+                <span>Speaking...</span>
+                <span className="text-red-400 font-bold text-[10px] ml-0.5">Stop</span>
+              </button>
+            )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                stopSpeaking();
+                onClose();
+              }}
               aria-label="Close assistant"
               className="btn btn-ghost btn-icon btn-sm"
             >
@@ -461,7 +604,44 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
                         )}
                       </div>
                     ) : (
-                      <AssistantMarkdown text={message.text} />
+                      <>
+                        <AssistantMarkdown text={message.text} />
+                        {message.id !== 'welcome' && (
+                          <div className="mt-2.5 pt-2 border-t border-line/40 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isSpeaking && activeSpeakingId === message.id) {
+                                  stopSpeaking();
+                                } else {
+                                  const synopsis = extractSpokenSummary(message.title, message.text);
+                                  speakText(synopsis, message.id);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-mono text-faint hover:text-ink transition-colors cursor-pointer"
+                              title="Listen to concise spoken summary"
+                            >
+                              {isSpeaking && activeSpeakingId === message.id ? (
+                                <>
+                                  <VolumeX className="h-3.5 w-3.5 text-red-400" />
+                                  <span className="text-red-400 font-medium">Stop speaking</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="h-3.5 w-3.5 text-accent" />
+                                  <span>Spoken summary</span>
+                                </>
+                              )}
+                            </button>
+
+                            {preferredVoice && (
+                              <span className="text-[10px] font-mono text-faint opacity-60">
+                                {preferredVoice.name.replace(/Microsoft |Online \(Natural\) - | Desktop/g, '').split(' - ')[0]}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )
                   ) : (
                     message.text
