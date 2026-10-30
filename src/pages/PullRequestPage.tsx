@@ -175,6 +175,146 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const modelRequestId = useRef(0);
   const lastModelTarget = useRef<{ file: PRFileChange; hunk: DiffHunk } | null>(null);
 
+  const speechUtterancesRef = useRef<SpeechSynthesisUtterance[]>([]);
+  const speechHeartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const cleanSpeechText = (raw: string): string => {
+    if (!raw) return '';
+    return raw
+      .replace(/```[\s\S]*?```/g, ' [code block omitted] ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/^\s*>\s*/gm, '')
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      .replace(/[*_]{1,3}/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const splitIntoSpeechChunks = (text: string): string[] => {
+    const rawPieces = text
+      .split(/(?<=[.!?])\s+|\n+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const piece of rawPieces) {
+      if (!currentChunk) {
+        currentChunk = piece;
+      } else if (currentChunk.length + piece.length + 1 < 160) {
+        currentChunk += ' ' + piece;
+      } else {
+        chunks.push(currentChunk);
+        currentChunk = piece;
+      }
+    }
+
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return chunks;
+  };
+
+  const stopSpeaking = () => {
+    if (speechHeartbeatRef.current) {
+      clearInterval(speechHeartbeatRef.current);
+      speechHeartbeatRef.current = null;
+    }
+    speechUtterancesRef.current = [];
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+  };
+
+  const speakText = (text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setSpeechNotice('Speech synthesis not supported in this browser');
+      setTimeout(() => setSpeechNotice(null), 3000);
+      return;
+    }
+
+    stopSpeaking();
+
+    const clean = cleanSpeechText(text);
+    if (!clean) {
+      return;
+    }
+
+    const chunks = splitIntoSpeechChunks(clean);
+    if (chunks.length === 0) return;
+
+    // Retain all utterance instances in ref to guard against browser garbage-collection cuts
+    const utterances = chunks.map((chunk, index) => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      if (index === 0) {
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+        };
+      }
+
+      const isLast = index === chunks.length - 1;
+      if (isLast) {
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          if (speechHeartbeatRef.current) {
+            clearInterval(speechHeartbeatRef.current);
+            speechHeartbeatRef.current = null;
+          }
+          speechUtterancesRef.current = [];
+        };
+      }
+
+      utterance.onerror = (e) => {
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+          console.warn('SpeechSynthesis error:', e.error);
+        }
+        if (isLast) {
+          setIsSpeaking(false);
+          if (speechHeartbeatRef.current) {
+            clearInterval(speechHeartbeatRef.current);
+            speechHeartbeatRef.current = null;
+          }
+          speechUtterancesRef.current = [];
+        }
+      };
+
+      return utterance;
+    });
+
+    speechUtterancesRef.current = utterances;
+
+    // Chromium keeps speaking active via heartbeat (avoids ~15s silent drop)
+    speechHeartbeatRef.current = setInterval(() => {
+      if (
+        typeof window !== 'undefined' &&
+        'speechSynthesis' in window &&
+        window.speechSynthesis.speaking &&
+        !window.speechSynthesis.paused
+      ) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+
+    // Queue every sentence chunk sequentially
+    for (const u of utterances) {
+      window.speechSynthesis.speak(u);
+    }
+
+    setSpeechNotice('Reading explanation aloud...');
+    setTimeout(() => setSpeechNotice(null), 3000);
+  };
+
   useEffect(() => {
     let cancelled = false;
     fetchModelStatus()
@@ -188,9 +328,7 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
       });
     return () => {
       cancelled = true;
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopSpeaking();
     };
   }, []);
 
@@ -246,9 +384,12 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
         explanation,
       });
 
-      // Speak key summary sentence if supported
+      // Speak full introductory summary paragraph if supported
       if ('speechSynthesis' in window && !window.speechSynthesis.speaking) {
-        speakText(explanation.text.slice(0, 160));
+        const firstParagraph = explanation.text.split(/\n\s*\n/)[0]?.trim();
+        if (firstParagraph) {
+          speakText(firstParagraph);
+        }
       }
     } catch (error) {
       if (requestId !== modelRequestId.current) return;
@@ -282,31 +423,6 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
         lines: activeDiff.unifiedLines,
         explanation: activeFile.summary,
       }, activeFile.summary);
-    }
-  };
-
-  const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) {
-      setSpeechNotice('Speech synthesis not supported in this browser');
-      setTimeout(() => setSpeechNotice(null), 3000);
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const cleanText = text.replace(/[*_#`[\]]/g, '').slice(0, 300);
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.0;
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-    window.speechSynthesis.speak(utterance);
-    setSpeechNotice('Speaking AI explanation...');
-    setTimeout(() => setSpeechNotice(null), 3000);
-  };
-
-  const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
     }
   };
 
