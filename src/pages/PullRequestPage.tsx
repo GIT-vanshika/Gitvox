@@ -75,6 +75,10 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   onResetPullRequest,
 }) => {
   const [diffMode, setDiffMode] = useState<'unified' | 'split'>('unified');
+  const [splitRatio, setSplitRatio] = useState<number>(50);
+  const [wrapLines, setWrapLines] = useState<boolean>(false);
+  const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
   const [fileSearch, setFileSearch] = useState('');
   const [highlightedLineRange, setHighlightedLineRange] = useState<[number, number] | null>(null);
   const [mobileTab, setMobileTab] = useState<'files' | 'diff' | 'review'>('diff');
@@ -84,6 +88,42 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const [prUrlInput, setPrUrlInput] = useState('');
   const [isLoadingPr, setIsLoadingPr] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDraggingSplit) return;
+
+    const originalUserSelect = document.body.style.userSelect;
+    const originalCursor = document.body.style.cursor;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const newRatio = Math.round((x / rect.width) * 100);
+      setSplitRatio(Math.min(80, Math.max(20, newRatio)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplit(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.body.style.userSelect = originalUserSelect;
+      document.body.style.cursor = originalCursor;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSplit]);
+
+  const handleMouseDownDivider = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingSplit(true);
+  };
 
   const handleFetchGitHubPr = async (overrideUrl?: string) => {
     const urlToFetch = (overrideUrl || prUrlInput).trim();
@@ -527,6 +567,34 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                 </button>
               </div>
 
+              {/* Wrap Lines Toggle */}
+              <button
+                type="button"
+                onClick={() => setWrapLines((prev) => !prev)}
+                className={`px-space-sm py-1.5 rounded text-body-sm font-body-sm flex items-center gap-1.5 transition-all cursor-pointer border ${
+                  wrapLines
+                    ? 'bg-surface-container-high text-primary border-primary/40 font-medium shadow-sm'
+                    : 'bg-surface-container text-on-surface-variant hover:text-on-surface border-surface-container-high/60'
+                }`}
+                title="Toggle line wrapping so long code lines wrap instead of truncating"
+              >
+                <span className="material-symbols-outlined text-[16px]">wrap_text</span>
+                <span>{wrapLines ? 'Wrapped' : 'Wrap Lines'}</span>
+              </button>
+
+              {/* Reset Split Ratio if customized */}
+              {diffMode === 'split' && splitRatio !== 50 && (
+                <button
+                  type="button"
+                  onClick={() => setSplitRatio(50)}
+                  className="px-2.5 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-primary border border-surface-container-high/60 text-[11px] font-telemetry-tag flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                  title="Reset split divider to 50/50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                  <span>{splitRatio}% : {100 - splitRatio}% (Reset)</span>
+                </button>
+              )}
+
               {/* Explain Diff with Voice Button */}
               <button
                 type="button"
@@ -853,7 +921,9 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                             {isAdded ? '+' : isDeleted ? '−' : ' '}
                           </td>
                           <td
-                            className={`py-0.5 px-3 whitespace-pre text-[13px] leading-relaxed ${
+                            className={`py-0.5 px-3 ${
+                              wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+                            } text-[13px] leading-relaxed ${
                               isAdded
                                 ? 'text-primary-fixed font-medium'
                                 : isDeleted
@@ -869,25 +939,64 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                   </tbody>
                 </table>
               ) : (
-                /* Split Diff View - Fixed Table preventing overlap */
-                <div className="w-full overflow-x-auto select-text">
-                  <table className="w-full table-fixed border-collapse font-code-block text-[12px] min-w-[900px]">
+                /* Split Diff View - Fixed Table with Interactive Resizing & Horizontal Sliding */
+                <div
+                  ref={splitContainerRef}
+                  className="w-full relative overflow-x-auto select-text scrollbar-thin scrollbar-thumb-surface-container-high"
+                >
+                  {/* Draggable Divider Handle */}
+                  <div
+                    onMouseDown={handleMouseDownDivider}
+                    onDoubleClick={() => setSplitRatio(50)}
+                    title="Drag left/right to resize split panes (Double-click to reset 50/50)"
+                    style={{ left: `${splitRatio}%` }}
+                    className={`absolute top-0 bottom-0 w-3 -ml-1.5 cursor-col-resize z-20 flex items-center justify-center select-none group ${
+                      isDraggingSplit ? 'bg-primary/20' : 'hover:bg-primary/10'
+                    }`}
+                  >
+                    <div
+                      className={`w-0.5 h-full transition-colors ${
+                        isDraggingSplit ? 'bg-primary' : 'bg-surface-container-high group-hover:bg-primary/70'
+                      }`}
+                    />
+                    <div className="absolute top-1/2 -translate-y-1/2 w-4 h-7 rounded bg-surface-container border border-surface-container-high shadow-md flex items-center justify-center text-outline group-hover:text-primary transition-colors pointer-events-none">
+                      <span className="material-symbols-outlined text-[12px]">drag_indicator</span>
+                    </div>
+                  </div>
+
+                  <table className="w-full table-fixed border-collapse font-code-block text-[12px] min-w-[850px]">
                     <colgroup>
-                      <col className="w-[50%]" />
-                      <col className="w-[50%]" />
+                      <col style={{ width: `${splitRatio}%` }} />
+                      <col style={{ width: `${100 - splitRatio}%` }} />
                     </colgroup>
                     <thead>
                       <tr className="border-b border-surface-container-high/60 bg-surface-container-high/40 text-[11px] font-telemetry-tag uppercase text-outline select-none">
-                        <th className="w-1/2 text-left border-r border-surface-container-high/60 px-3 py-1.5 font-semibold">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[14px]">history</span>
-                            <span>Base ({pullRequest.targetBranch})</span>
+                        <th
+                          style={{ width: `${splitRatio}%` }}
+                          className="text-left border-r border-surface-container-high/60 px-3 py-1.5 font-semibold"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[14px]">history</span>
+                              <span>Base ({pullRequest.targetBranch})</span>
+                            </div>
+                            <span className="text-[10px] font-telemetry-tag text-outline/70">
+                              {splitRatio}%
+                            </span>
                           </div>
                         </th>
-                        <th className="w-1/2 text-left px-3 py-1.5 font-semibold">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[14px] text-amber-400">commit</span>
-                            <span>Proposed ({pullRequest.sourceBranch})</span>
+                        <th
+                          style={{ width: `${100 - splitRatio}%` }}
+                          className="text-left px-3 py-1.5 font-semibold"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[14px] text-amber-400">commit</span>
+                              <span>Proposed ({pullRequest.sourceBranch})</span>
+                            </div>
+                            <span className="text-[10px] font-telemetry-tag text-outline/70">
+                              {100 - splitRatio}%
+                            </span>
                           </div>
                         </th>
                       </tr>
@@ -904,11 +1013,12 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                           >
                             {/* Left: Base */}
                             <td
-                              className={`w-1/2 align-top border-r border-surface-container-high/60 p-0 overflow-hidden ${
+                              style={{ width: `${splitRatio}%` }}
+                              className={`align-top border-r border-surface-container-high/60 p-0 overflow-hidden ${
                                 isLeftDel ? 'bg-error/15 text-error' : ''
                               }`}
                             >
-                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-none">
+                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-thin scrollbar-thumb-surface-container-high/40">
                                 <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
                                   {row.leftLineNumber ?? ''}
                                 </span>
@@ -916,7 +1026,9 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                                   {isLeftDel ? '−' : ' '}
                                 </span>
                                 <span
-                                  className={`whitespace-pre flex-1 leading-relaxed ${
+                                  className={`${
+                                    wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+                                  } flex-1 leading-relaxed ${
                                     isLeftDel ? 'line-through opacity-85' : 'text-on-surface'
                                   }`}
                                 >
@@ -929,18 +1041,23 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
 
                             {/* Right: Proposed */}
                             <td
-                              className={`w-1/2 align-top p-0 overflow-hidden ${
+                              style={{ width: `${100 - splitRatio}%` }}
+                              className={`align-top p-0 overflow-hidden ${
                                 isRightAdd ? 'bg-primary/10 text-primary-fixed' : ''
                               }`}
                             >
-                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-none">
+                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-thin scrollbar-thumb-surface-container-high/40">
                                 <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
                                   {row.rightLineNumber ?? ''}
                                 </span>
                                 <span className="w-4 shrink-0 select-none text-center font-bold text-primary">
                                   {isRightAdd ? '+' : ' '}
                                 </span>
-                                <span className="whitespace-pre flex-1 leading-relaxed text-on-surface">
+                                <span
+                                  className={`${
+                                    wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+                                  } flex-1 leading-relaxed text-on-surface`}
+                                >
                                   {row.rightContent !== null
                                     ? renderHighlightedLine(row.rightContent, activeFile.language)
                                     : ''}
