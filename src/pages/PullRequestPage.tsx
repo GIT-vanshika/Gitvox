@@ -60,6 +60,50 @@ interface PullRequestPageProps {
   onResetPullRequest?: () => void;
 }
 
+const getBestNaturalVoice = (): SpeechSynthesisVoice | null => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  // 1. Highest priority: Microsoft Online Natural voices (Edge / Windows modern)
+  // e.g. "Microsoft Jenny Online (Natural) - English (United States)", "Microsoft Guy Online (Natural)"
+  const naturalVoice = voices.find(
+    (v) =>
+      v.lang.startsWith('en') &&
+      (v.name.includes('Natural') || v.name.includes('Online (Natural)'))
+  );
+  if (naturalVoice) return naturalVoice;
+
+  // 2. Google Neural / Natural voices (Chrome / Android)
+  const googleVoice = voices.find(
+    (v) =>
+      v.lang.startsWith('en') &&
+      (v.name.includes('Neural') || v.name.includes('Google') || v.name.includes('Natural'))
+  );
+  if (googleVoice) return googleVoice;
+
+  // 3. Apple Samantha / Siri / Premium voices (macOS / Safari)
+  const premiumVoice = voices.find(
+    (v) =>
+      v.lang.startsWith('en') &&
+      (v.name.includes('Premium') || v.name.includes('Enhanced') || v.name.includes('Samantha') || v.name.includes('Siri'))
+  );
+  if (premiumVoice) return premiumVoice;
+
+  // 4. Any English voice that is NOT the robotic Microsoft David
+  const nonDavidVoice = voices.find(
+    (v) =>
+      v.lang.startsWith('en') &&
+      !v.name.includes('David') &&
+      !v.name.includes('Desktop')
+  );
+  if (nonDavidVoice) return nonDavidVoice;
+
+  // 5. Any English voice fallback
+  const anyEnglish = voices.find((v) => v.lang.startsWith('en'));
+  return anyEnglish || voices[0] || null;
+};
+
 export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   pullRequest,
   findings,
@@ -85,6 +129,25 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const [mobileTab, setMobileTab] = useState<'files' | 'diff' | 'review'>('diff');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+  const [preferredVoice, setPreferredVoice] = useState<SpeechSynthesisVoice | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const updateVoice = () => {
+      const best = getBestNaturalVoice();
+      if (best) setPreferredVoice(best);
+    };
+
+    updateVoice();
+    window.speechSynthesis.onvoiceschanged = updateVoice;
+
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
 
   const [prUrlInput, setPrUrlInput] = useState('');
   const [isLoadingPr, setIsLoadingPr] = useState(false);
@@ -250,9 +313,14 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
     const chunks = splitIntoSpeechChunks(clean);
     if (chunks.length === 0) return;
 
+    const chosenVoice = preferredVoice || getBestNaturalVoice();
+
     // Retain all utterance instances in ref to guard against browser garbage-collection cuts
     const utterances = chunks.map((chunk, index) => {
       const utterance = new SpeechSynthesisUtterance(chunk);
+      if (chosenVoice) {
+        utterance.voice = chosenVoice;
+      }
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
 
@@ -311,8 +379,11 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
       window.speechSynthesis.speak(u);
     }
 
-    setSpeechNotice('Reading explanation aloud...');
-    setTimeout(() => setSpeechNotice(null), 3000);
+    const voiceDisplayName = chosenVoice
+      ? chosenVoice.name.replace(/Microsoft |Online \(Natural\) - | Desktop/g, '').split(' - ')[0]
+      : 'Natural';
+    setSpeechNotice(`Reading aloud (${voiceDisplayName} voice)...`);
+    setTimeout(() => setSpeechNotice(null), 3500);
   };
 
   useEffect(() => {
@@ -1046,22 +1117,37 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     {modelRun.status === 'success' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isSpeaking) {
-                            stopSpeaking();
-                          } else {
-                            speakText(modelRun.explanation.text);
-                          }
-                        }}
-                        className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 text-[11px] font-telemetry-tag flex items-center gap-1 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[13px]">
-                          {isSpeaking ? 'volume_off' : 'volume_up'}
-                        </span>
-                        <span>{isSpeaking ? 'Stop' : 'Read Aloud'}</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {preferredVoice && (
+                          <span
+                            className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-container text-[10px] font-telemetry-tag text-on-surface-variant border border-surface-container-high/60"
+                            title={`Synthesizer voice: ${preferredVoice.name}`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            <span>
+                              {preferredVoice.name.includes('Natural') || preferredVoice.name.includes('Neural')
+                                ? preferredVoice.name.replace(/Microsoft |Online \(Natural\) - | Desktop/g, '').split(' - ')[0]
+                                : 'Natural Voice'}
+                            </span>
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isSpeaking) {
+                              stopSpeaking();
+                            } else {
+                              speakText(modelRun.explanation.text);
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 text-[11px] font-telemetry-tag flex items-center gap-1 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">
+                            {isSpeaking ? 'volume_off' : 'volume_up'}
+                          </span>
+                          <span>{isSpeaking ? 'Stop' : 'Read Aloud'}</span>
+                        </button>
+                      </div>
                     )}
                     <button
                       type="button"
