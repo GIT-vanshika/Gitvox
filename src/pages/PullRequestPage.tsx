@@ -54,7 +54,7 @@ interface PullRequestPageProps {
   explanations: AIExplanation[];
   onExplainHunk: (filePath: string, hunk: DiffHunk, fileSummary: string) => void;
   onExecuteCommand: (command: string) => void;
-  onNavigate: (route: RouteId) => void;
+  onNavigate: (route: RouteId, targetFilePath?: string) => void;
   onOpenChat?: () => void;
   onLoadPullRequest?: (pr: PullRequestData) => void;
   onResetPullRequest?: () => void;
@@ -88,6 +88,31 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const [prUrlInput, setPrUrlInput] = useState('');
   const [isLoadingPr, setIsLoadingPr] = useState(false);
   const [prError, setPrError] = useState<string | null>(null);
+
+  const [fileDropdownOpen, setFileDropdownOpen] = useState(false);
+  const fileDropdownRef = useRef<HTMLDivElement>(null);
+  const [copiedPath, setCopiedPath] = useState(false);
+
+  useEffect(() => {
+    if (!fileDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (fileDropdownRef.current && !fileDropdownRef.current.contains(e.target as Node)) {
+        setFileDropdownOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, [fileDropdownOpen]);
+
+  const handleCopyFilePath = async () => {
+    try {
+      await navigator.clipboard.writeText(activeFile.path);
+      setCopiedPath(true);
+      setTimeout(() => setCopiedPath(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (!isDraggingSplit) return;
@@ -744,15 +769,89 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
           <main className="flex-1 w-full min-w-0 flex flex-col gap-space-sm">
             {/* Diff File Header Ribbon */}
             <div className="w-full bg-surface-container-low rounded-t-xl px-space-md py-space-sm flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm shadow-sm border border-b-0 border-surface-container-high/60">
-              <div className="flex items-center gap-space-sm min-w-0">
-                <div className="w-7 h-7 rounded bg-surface-container flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-amber-400 text-[18px]">code</span>
-                </div>
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-code-block text-code-block text-on-surface font-semibold truncate">
-                    {activeFile.path}
+              <div className="flex items-center gap-space-sm min-w-0" ref={fileDropdownRef}>
+                {/* Workable Code Icon - Click to View in Live Workspace */}
+                <button
+                  type="button"
+                  onClick={() => onNavigate('project', activeFile.path)}
+                  className="w-7 h-7 rounded bg-surface-container hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer shadow-sm group"
+                  title="Open full file in Live Workspace (Monaco Code Editor)"
+                >
+                  <span className="material-symbols-outlined text-[17px] group-hover:scale-110 transition-transform">
+                    code
                   </span>
-                  <span className="font-telemetry-tag text-telemetry-tag px-2 py-0.5 rounded bg-surface-container-highest flex items-center gap-1">
+                </button>
+
+                {/* File Path & Quick Switcher Dropdown */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setFileDropdownOpen((prev) => !prev)}
+                      className="flex items-center gap-1.5 font-code-block text-code-block text-on-surface hover:text-primary font-semibold transition-colors truncate cursor-pointer group px-1.5 py-0.5 rounded hover:bg-surface-container"
+                      title="Click to switch file"
+                    >
+                      <span className="truncate">{activeFile.path}</span>
+                      <span className="material-symbols-outlined text-[16px] text-outline group-hover:text-primary transition-transform">
+                        {fileDropdownOpen ? 'expand_less' : 'expand_more'}
+                      </span>
+                    </button>
+
+                    {/* Quick Switcher Dropdown Menu */}
+                    {fileDropdownOpen && (
+                      <div className="absolute left-0 top-full mt-1.5 w-80 max-h-72 overflow-y-auto bg-surface-container border border-surface-container-high shadow-2xl rounded-lg p-1.5 z-30 font-code-block text-[12px]">
+                        <div className="px-2 py-1 text-[10px] font-telemetry-tag uppercase text-outline border-b border-surface-container-high/50 flex justify-between items-center mb-1">
+                          <span>Changed Files ({pullRequest.files.length})</span>
+                          <span>Select to inspect</span>
+                        </div>
+                        {pullRequest.files.map((file) => {
+                          const isSel = file.path === activeFile.path;
+                          return (
+                            <button
+                              key={file.path}
+                              type="button"
+                              onClick={() => {
+                                onSelectFile(file.path);
+                                setHighlightedLineRange(null);
+                                setFileDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded flex items-center justify-between transition-colors cursor-pointer ${
+                                isSel
+                                  ? 'bg-primary/15 text-primary font-medium'
+                                  : 'hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate pr-2">
+                                <span className="shrink-0 flex items-center justify-center">
+                                  {getFileIcon(file.path)}
+                                </span>
+                                <span className="truncate">{file.path}</span>
+                              </div>
+                              <span className="font-telemetry-tag text-[10px] shrink-0">
+                                <span className="text-primary font-semibold">+{file.expectedAdditions}</span>{' '}
+                                <span className="text-error font-semibold">−{file.expectedDeletions}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Copy Path Button */}
+                  <button
+                    type="button"
+                    onClick={handleCopyFilePath}
+                    className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                    title={copiedPath ? 'Copied to clipboard!' : 'Copy file path'}
+                  >
+                    <span className={`material-symbols-outlined text-[14px] ${copiedPath ? 'text-emerald-400' : ''}`}>
+                      {copiedPath ? 'check' : 'content_copy'}
+                    </span>
+                  </button>
+
+                  {/* Diff Stats Badge */}
+                  <span className="font-telemetry-tag text-telemetry-tag px-2 py-0.5 rounded bg-surface-container-highest flex items-center gap-1 shrink-0">
                     <span className="text-primary font-bold">+{activeDiff.additions}</span>
                     <span className="text-error font-bold">−{activeDiff.deletions}</span>
                   </span>
@@ -761,10 +860,21 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
 
               {/* Diff Right Actions Toolbar */}
               <div className="flex items-center gap-space-sm">
+                {/* Open in Workspace Button */}
+                <button
+                  type="button"
+                  onClick={() => onNavigate('project', activeFile.path)}
+                  className="px-space-sm py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface hover:text-primary font-body-sm text-body-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-surface-container-high/60 shadow-sm"
+                  title="Open this file in Live Workspace (Monaco Editor)"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-amber-400">code</span>
+                  <span className="hidden sm:inline">Open in Workspace</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => onToggleFileReviewed(activeFile.path)}
-                  className="px-space-sm py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-surface-container-high/60"
+                  className="px-space-sm py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-surface-container-high/60 shadow-sm"
                 >
                   <span className="material-symbols-outlined text-[16px] text-primary">
                     {isCurrentFileReviewed ? 'check_box' : 'check_box_outline_blank'}
