@@ -12,7 +12,7 @@
     "start": "node server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "tsx --test src/services/gitvoxLogic.test.ts src/services/voiceCommands.test.ts src/services/speechRecognition.test.ts src/services/assistantRequest.test.ts src/services/assistantMarkdown.test.ts server/modelClient.test.ts server/assistantClient.test.ts",
+    "test": "tsx --test src/services/gitHubPrService.test.ts src/services/gitvoxLogic.test.ts src/services/voiceCommands.test.ts src/services/speechRecognition.test.ts src/services/assistantRequest.test.ts src/services/assistantMarkdown.test.ts server/modelClient.test.ts server/assistantClient.test.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

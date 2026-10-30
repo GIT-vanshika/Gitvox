@@ -42,6 +42,11 @@ function isRateLimited(key: string): boolean {
   return false;
 }
 
+import {
+  parseGitHubPrUrl,
+  parseGitPatchToPullRequest,
+} from '../src/services/gitHubPrService';
+
 export const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
@@ -61,6 +66,38 @@ app.use('/api', (req, res, next) => {
 
 app.get('/api/model/status', (_req, res) => {
   res.json(getPublicModelStatus());
+});
+
+app.post('/api/github/pr', async (req, res) => {
+  const url = req.body?.url;
+  const coords = parseGitHubPrUrl(url);
+  if (!coords) {
+    res.status(400).json({ error: { message: 'Invalid GitHub PR URL. Provide a link like https://github.com/owner/repo/pull/123' } });
+    return;
+  }
+
+  try {
+    const rawPatchUrl = `https://patch-diff.githubusercontent.com/raw/${coords.owner}/${coords.repo}/pull/${coords.pullNumber}.patch`;
+    const patchRes = await fetch(rawPatchUrl, {
+      headers: { 'User-Agent': 'Gitvox' },
+    });
+
+    if (!patchRes.ok) {
+      res.status(patchRes.status).json({
+        error: { message: `GitHub returned HTTP ${patchRes.status} for PR #${coords.pullNumber}` },
+      });
+      return;
+    }
+
+    const patchText = await patchRes.text();
+    const pullRequest = parseGitPatchToPullRequest(patchText, coords);
+    res.json({ pullRequest });
+  } catch (error) {
+    console.error('[server/github] Error fetching PR:', error);
+    res.status(500).json({
+      error: { message: error instanceof Error ? error.message : 'Could not fetch GitHub PR' },
+    });
+  }
 });
 
 app.post('/api/explain', async (req, res) => {

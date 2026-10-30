@@ -7,13 +7,15 @@ import {
   SUPPORTED_EXTENSIONS,
 } from '../services/fileParser';
 import { SAMPLE_PROJECT } from '../data/sampleProject';
-import { LoadedProject, RouteId, SystemStatus } from '../types/gitvox';
+import { LoadedProject, PullRequestData, RouteId, SystemStatus } from '../types/gitvox';
+import { fetchGitHubPullRequest } from '../services/gitHubPrService';
 
 interface StartExploringPageProps {
   systemStatus: SystemStatus;
   onSetStatus: (status: SystemStatus) => void;
   onProjectLoaded: (project: LoadedProject) => void;
   onNavigate: (route: RouteId) => void;
+  onLoadPullRequest?: (pr: PullRequestData) => void;
 }
 
 export const StartExploringPage: React.FC<StartExploringPageProps> = ({
@@ -21,10 +23,32 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
   onSetStatus,
   onProjectLoaded,
   onNavigate,
+  onLoadPullRequest,
 }) => {
   const singleFileInputRef = useRef<HTMLInputElement | null>(null);
   const zipFileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [prUrl, setPrUrl] = useState('');
+  const [isLoadingPr, setIsLoadingPr] = useState(false);
+  const [prError, setPrError] = useState<string | null>(null);
+
+  const handleImportGitHubPr = async () => {
+    if (!prUrl.trim()) return;
+    setIsLoadingPr(true);
+    setPrError(null);
+    try {
+      const pr = await fetchGitHubPullRequest(prUrl.trim());
+      if (onLoadPullRequest) {
+        onLoadPullRequest(pr);
+      } else {
+        onNavigate('pr');
+      }
+    } catch (err) {
+      setPrError(err instanceof Error ? err.message : 'Could not import GitHub PR.');
+    } finally {
+      setIsLoadingPr(false);
+    }
+  };
 
   const [errorBanner, setErrorBanner] = useState<{
     title: string;
@@ -639,34 +663,76 @@ export const StartExploringPage: React.FC<StartExploringPageProps> = ({
               </div>
             </div>
 
-            {/* Bottom Integration Card: Direct GitHub Repository Import */}
-            <div className="w-full p-space-lg rounded-xl bg-surface-container-low border border-surface-container-high/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-space-lg relative overflow-hidden">
-              <div className="flex items-start md:items-center gap-space-md relative z-10">
-                <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-on-surface shrink-0 border border-surface-container-high/60 shadow-inner">
-                  <span className="material-symbols-outlined text-[26px] text-tertiary">hub</span>
-                </div>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-space-sm flex-wrap">
-                    <h3 className="font-headline-md text-headline-md font-bold text-on-surface">Direct GitHub repository import</h3>
-                    <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-outline font-telemetry-tag text-telemetry-tag uppercase font-semibold">
-                      PLANNED / COMING SOON
-                    </span>
+            {/* Bottom Integration Card: Direct GitHub Pull Request Import */}
+            <div className="w-full p-space-lg rounded-xl bg-surface-container-low border border-surface-container-high/60 shadow-sm flex flex-col items-start gap-space-md relative overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md w-full relative z-10">
+                <div className="flex items-start md:items-center gap-space-md">
+                  <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-on-surface shrink-0 border border-surface-container-high/60 shadow-inner">
+                    <span className="material-symbols-outlined text-[26px] text-tertiary">hub</span>
                   </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl leading-relaxed">
-                    Connect personal access tokens or OAuth to read public and private repositories directly into the sandboxed AST analyzer.
-                  </p>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-space-sm flex-wrap">
+                      <h3 className="font-headline-md text-headline-md font-bold text-on-surface">Direct GitHub Pull Request Import</h3>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-telemetry-tag text-telemetry-tag uppercase font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        LIVE &amp; READY
+                      </span>
+                    </div>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl leading-relaxed">
+                      Paste any public GitHub Pull Request link to inspect file diffs, view unified and split code changes, and review by voice with zero setup.
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-space-md shrink-0 w-full md:w-auto justify-end relative z-10">
+
+              {/* Input + Action Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-space-sm w-full relative z-10 mt-1">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={prUrl}
+                    onChange={(e) => {
+                      setPrUrl(e.target.value);
+                      if (prError) setPrError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleImportGitHubPr();
+                    }}
+                    placeholder="Enter GitHub PR URL (e.g. https://github.com/facebook/react/pull/31200)"
+                    className="w-full px-4 py-2.5 pl-9 rounded-xl bg-surface-container-lowest border border-surface-container-high focus:border-primary/60 focus:outline-none text-body-sm font-code-block text-on-surface placeholder:text-outline"
+                  />
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-outline">
+                    link
+                  </span>
+                </div>
                 <button
                   type="button"
-                  disabled
-                  className="px-space-md py-2.5 rounded-xl bg-surface-container-high text-outline font-body-sm text-body-sm font-medium cursor-not-allowed opacity-75 flex items-center gap-2 border border-surface-container-high"
+                  onClick={() => void handleImportGitHubPr()}
+                  disabled={isLoadingPr || !prUrl.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-body-sm text-body-sm font-semibold transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50 cursor-pointer shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-[16px]">lock</span>
-                  <span>Connect GitHub (v2.5)</span>
+                  {isLoadingPr ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div>
+                      <span>Importing PR...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">cloud_download</span>
+                      <span>Import &amp; Review PR</span>
+                    </>
+                  )}
                 </button>
               </div>
+
+              {prError && (
+                <div className="w-full px-3 py-2 rounded-lg bg-error/15 border border-error/30 text-error text-body-sm flex items-center justify-between relative z-10">
+                  <span>{prError}</span>
+                  <button type="button" onClick={() => setPrError(null)}>
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

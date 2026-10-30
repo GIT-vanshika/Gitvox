@@ -10,6 +10,10 @@ import {
   requestAssistantExplanation,
   validateAssistantRequest,
 } from '../assistantClient';
+import {
+  parseGitHubPrUrl,
+  parseGitPatchToPullRequest,
+} from '../../src/services/gitHubPrService';
 import { parseJsonBody, sendJson } from './_utils';
 
 export default async function handler(
@@ -36,6 +40,27 @@ export default async function handler(
     if (req.method === 'POST') {
       const body = await parseJsonBody(req);
       const config = getModelConfig();
+
+      if (url.includes('/github/pr')) {
+        const prUrl = (body as { url?: string })?.url || '';
+        const coords = parseGitHubPrUrl(prUrl);
+        if (!coords) {
+          sendJson(res, 400, { error: { message: 'Invalid GitHub PR URL' } });
+          return;
+        }
+        const rawPatchUrl = `https://patch-diff.githubusercontent.com/raw/${coords.owner}/${coords.repo}/pull/${coords.pullNumber}.patch`;
+        const patchRes = await fetch(rawPatchUrl, { headers: { 'User-Agent': 'Gitvox' } });
+        if (!patchRes.ok) {
+          sendJson(res, patchRes.status, {
+            error: { message: `GitHub returned HTTP ${patchRes.status} for PR #${coords.pullNumber}` },
+          });
+          return;
+        }
+        const patchText = await patchRes.text();
+        const pullRequest = parseGitPatchToPullRequest(patchText, coords);
+        sendJson(res, 200, { pullRequest });
+        return;
+      }
 
       if (url.includes('/assistant')) {
         const input = validateAssistantRequest(body);

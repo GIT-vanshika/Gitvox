@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AssistantMarkdown } from '../components/voice/AssistantMarkdown';
 import { computeFileDiff, generateUnifiedPatch } from '../services/diffService';
+import { fetchGitHubPullRequest } from '../services/gitHubPrService';
 import {
   buildExplainRequest,
   explainHunkWithModel,
@@ -54,6 +55,8 @@ interface PullRequestPageProps {
   onExecuteCommand: (command: string) => void;
   onNavigate: (route: RouteId) => void;
   onOpenChat?: () => void;
+  onLoadPullRequest?: (pr: PullRequestData) => void;
+  onResetPullRequest?: () => void;
 }
 
 export const PullRequestPage: React.FC<PullRequestPageProps> = ({
@@ -67,6 +70,8 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   onExecuteCommand: _onExecuteCommand,
   onNavigate,
   onOpenChat,
+  onLoadPullRequest,
+  onResetPullRequest,
 }) => {
   const [diffMode, setDiffMode] = useState<'unified' | 'split'>('unified');
   const [fileSearch, setFileSearch] = useState('');
@@ -74,6 +79,29 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const [mobileTab, setMobileTab] = useState<'files' | 'diff' | 'review'>('diff');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+
+  const [prUrlInput, setPrUrlInput] = useState('');
+  const [isLoadingPr, setIsLoadingPr] = useState(false);
+  const [prError, setPrError] = useState<string | null>(null);
+
+  const handleFetchGitHubPr = async (overrideUrl?: string) => {
+    const urlToFetch = (overrideUrl || prUrlInput).trim();
+    if (!urlToFetch) return;
+    setIsLoadingPr(true);
+    setPrError(null);
+
+    try {
+      const fetchedPr = await fetchGitHubPullRequest(urlToFetch);
+      onLoadPullRequest?.(fetchedPr);
+      setPrUrlInput('');
+      setSpeechNotice(`Successfully loaded ${fetchedPr.repository} PR #${fetchedPr.number}!`);
+      setTimeout(() => setSpeechNotice(null), 4000);
+    } catch (err) {
+      setPrError(err instanceof Error ? err.message : 'Could not load GitHub PR.');
+    } finally {
+      setIsLoadingPr(false);
+    }
+  };
 
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
   const [modelRun, setModelRun] = useState<ModelRun>({ status: 'idle' });
@@ -330,6 +358,109 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
 
       {/* Main Content Area */}
       <main className="w-full pt-16 flex-1 bg-surface flex flex-col">
+        {/* GitHub PR URL Ingestion Bar */}
+        <section className="w-full bg-surface-container-low border-b border-surface-container-high/60 px-space-lg py-2.5">
+          <div className="max-w-[1720px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-sm">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-space-sm flex-1 max-w-3xl">
+              <div className="flex items-center gap-1.5 text-primary shrink-0 font-telemetry-tag text-telemetry-tag font-semibold">
+                <span className="material-symbols-outlined text-[18px]">hub</span>
+                <span>GitHub PR Link:</span>
+              </div>
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={prUrlInput}
+                  onChange={(e) => {
+                    setPrUrlInput(e.target.value);
+                    if (prError) setPrError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleFetchGitHubPr();
+                  }}
+                  placeholder="Paste any GitHub PR link (e.g. https://github.com/facebook/react/pull/31200)"
+                  className="w-full px-3 py-1.5 pl-8 rounded-lg bg-surface-container-lowest border border-surface-container-high focus:border-primary/60 focus:outline-none text-body-sm font-code-block text-on-surface placeholder:text-outline"
+                />
+                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] text-outline">
+                  link
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleFetchGitHubPr()}
+                disabled={isLoadingPr || !prUrlInput.trim()}
+                className="px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-on-primary font-body-sm font-semibold transition-all flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer shadow-sm"
+              >
+                {isLoadingPr ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">cloud_download</span>
+                    <span>Review PR</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick Demo PR Switches & Mode Badge */}
+            <div className="flex items-center gap-space-md font-telemetry-tag text-telemetry-tag text-on-surface-variant shrink-0 justify-between sm:justify-end">
+              {!pullRequest.isSampleData ? (
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    Live {pullRequest.repository} #{pullRequest.number}
+                  </span>
+                  {onResetPullRequest && (
+                    <button
+                      type="button"
+                      onClick={onResetPullRequest}
+                      className="text-on-surface-variant hover:text-primary transition-colors underline cursor-pointer text-xs"
+                    >
+                      Reset to Sample PR #284
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-outline">
+                  <span>Demo Mode: Sample PR #284</span>
+                  <span className="text-outline-variant">•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleFetchGitHubPr('https://github.com/facebook/react/pull/31200');
+                    }}
+                    className="text-tertiary hover:underline cursor-pointer"
+                    title="Click to test loading React PR #31200"
+                  >
+                    Try React #31200
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* PR Ingestion Error Toast */}
+        {prError && (
+          <div className="max-w-[1720px] mx-auto w-full px-space-lg pt-2.5">
+            <div className="px-3 py-2 rounded-lg bg-error/15 border border-error/30 text-error text-body-sm flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">error</span>
+                <span>{prError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrError(null)}
+                className="hover:opacity-75 transition-opacity"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* PR Sub-Header / Breadcrumb & High-Level Actions */}
         <section className="w-full bg-surface-container-lowest px-space-lg py-space-md shadow-sm border-b border-surface-container-high/60">
           <div className="max-w-[1720px] mx-auto flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">

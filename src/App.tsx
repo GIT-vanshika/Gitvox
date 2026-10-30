@@ -52,6 +52,7 @@ export function App() {
     SAMPLE_PROJECT.files[0].functions[0]?.name || null
   );
 
+  const [pullRequest, setPullRequest] = useState<PullRequestData>(SAMPLE_PULL_REQUEST);
   const [selectedPrFilePath, setSelectedPrFilePath] = useState<string>(
     SAMPLE_PULL_REQUEST.files[0].path
   );
@@ -187,11 +188,11 @@ export function App() {
       project: loadedProject,
       selectedFile: activeProjectFile,
       selectedFunctionName,
-      pullRequest: SAMPLE_PULL_REQUEST,
+      pullRequest: pullRequest,
       findings: SAMPLE_FINDINGS,
       currentRoute,
       selectedPrFile:
-        SAMPLE_PULL_REQUEST.files.find((file) => file.path === selectedPrFilePath) || null,
+        pullRequest.files.find((file) => file.path === selectedPrFilePath) || null,
     });
 
     setLastCommandResult(result);
@@ -217,7 +218,7 @@ export function App() {
         commandText,
         loadedProject,
         activeProjectFile,
-        SAMPLE_PULL_REQUEST
+        pullRequest
       );
       setExplanations((prev) => [qaExp, ...prev]);
       setSystemStatus('Completed');
@@ -330,11 +331,11 @@ export function App() {
       project: loadedProject,
       selectedFile: activeProjectFile,
       selectedFunctionName,
-      pullRequest: SAMPLE_PULL_REQUEST,
+      pullRequest: pullRequest,
       findings: SAMPLE_FINDINGS,
       currentRoute,
       selectedPrFile:
-        SAMPLE_PULL_REQUEST.files.find((file) => file.path === selectedPrFilePath) || null,
+        pullRequest.files.find((file) => file.path === selectedPrFilePath) || null,
     });
 
     if (commandResult.recognized && commandResult.explanation) {
@@ -365,7 +366,7 @@ export function App() {
       transcript,
       loadedProject,
       activeProjectFile,
-      SAMPLE_PULL_REQUEST
+      pullRequest
     );
 
     const formatted = [
@@ -411,9 +412,9 @@ export function App() {
 
     const built = buildAssistantRequest(match, {
       route: currentRoute,
-      pullRequest: SAMPLE_PULL_REQUEST,
+      pullRequest: pullRequest,
       selectedPrFile:
-        SAMPLE_PULL_REQUEST.files.find((file) => file.path === selectedPrFilePath) || null,
+        pullRequest.files.find((file) => file.path === selectedPrFilePath) || null,
       project: loadedProject,
       selectedFile: activeProjectFile,
       selectedFunctionName,
@@ -463,6 +464,19 @@ export function App() {
     setCurrentRoute('explore');
   };
 
+  const handleLoadPullRequest = (loadedPr: PullRequestData) => {
+    setPullRequest(loadedPr);
+    setSelectedPrFilePath(loadedPr.files[0]?.path || '');
+    setReviewedFiles({});
+    setCurrentRoute('pr');
+  };
+
+  const handleResetPullRequest = () => {
+    setPullRequest(SAMPLE_PULL_REQUEST);
+    setSelectedPrFilePath(SAMPLE_PULL_REQUEST.files[0].path);
+    setReviewedFiles({});
+  };
+
   return (
     <div className="min-h-screen bg-page text-ink">
       <main>
@@ -474,6 +488,7 @@ export function App() {
             onSetStatus={setSystemStatus}
             onProjectLoaded={handleProjectLoaded}
             onNavigate={handleNavigate}
+            onLoadPullRequest={handleLoadPullRequest}
           />
         )}
 
@@ -499,7 +514,7 @@ export function App() {
 
         {currentRoute === 'pr' && (
           <PullRequestPage
-            pullRequest={SAMPLE_PULL_REQUEST}
+            pullRequest={pullRequest}
             findings={SAMPLE_FINDINGS}
             selectedFilePath={selectedPrFilePath}
             onSelectFile={setSelectedPrFilePath}
@@ -510,6 +525,8 @@ export function App() {
             onExecuteCommand={handleExecuteCommand}
             onNavigate={handleNavigate}
             onOpenChat={openChatAssistant}
+            onLoadPullRequest={handleLoadPullRequest}
+            onResetPullRequest={handleResetPullRequest}
           />
         )}
       </main>

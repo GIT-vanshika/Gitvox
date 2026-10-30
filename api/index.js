@@ -913,6 +913,148 @@ async function requestAssistantExplanation(input, config = getModelConfig(), dep
   return { ...result, truncatedContext: truncated };
 }
 
+// src/services/unifiedSyntaxEngine.ts
+var detectLanguageFromPath = (filePath) => {
+  if (!filePath) return "javascript";
+  const lower = filePath.toLowerCase();
+  if (lower.endsWith(".py") || lower.endsWith(".pyw")) return "python";
+  if (lower.endsWith(".cpp") || lower.endsWith(".cc") || lower.endsWith(".cxx") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) return "cpp";
+  if (lower.endsWith(".c") || lower.endsWith(".h")) return "c";
+  if (lower.endsWith(".rs")) return "rust";
+  if (lower.endsWith(".go")) return "go";
+  if (lower.endsWith(".java")) return "java";
+  if (lower.endsWith(".cs")) return "csharp";
+  if (lower.endsWith(".php")) return "php";
+  if (lower.endsWith(".json")) return "json";
+  if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+  if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs")) return "javascript";
+  if (lower.endsWith(".md")) return "markdown";
+  if (lower.endsWith(".css")) return "css";
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+  if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "yaml";
+  if (lower.endsWith(".sql")) return "sql";
+  if (lower.endsWith(".sh") || lower.endsWith(".bash")) return "shell";
+  return "javascript";
+};
+
+// src/services/gitHubPrService.ts
+function parseGitHubPrUrl(input) {
+  if (!input || typeof input !== "string") return null;
+  const trimmed = input.trim();
+  const fullRegex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)/i;
+  const match = trimmed.match(fullRegex);
+  if (match) {
+    return {
+      owner: match[1],
+      repo: match[2],
+      pullNumber: parseInt(match[3], 10)
+    };
+  }
+  const slashRegex = /^([^/\s]+)\/([^/\s]+)\/pull\/(\d+)/i;
+  const slashMatch = trimmed.match(slashRegex);
+  if (slashMatch) {
+    return {
+      owner: slashMatch[1],
+      repo: slashMatch[2],
+      pullNumber: parseInt(slashMatch[3], 10)
+    };
+  }
+  const hashRegex = /^([^/\s]+)\/([^/#\s]+)#(\d+)$/;
+  const hashMatch = trimmed.match(hashRegex);
+  if (hashMatch) {
+    return {
+      owner: hashMatch[1],
+      repo: hashMatch[2],
+      pullNumber: parseInt(hashMatch[3], 10)
+    };
+  }
+  return null;
+}
+function parseGitPatchToPullRequest(patchText, meta) {
+  if (!patchText || patchText.trim().length === 0) {
+    throw new Error("Patch content is empty. Ensure the GitHub PR has commits and file changes.");
+  }
+  const authorMatch = patchText.match(/^From:\s*(.+)$/m);
+  const subjectMatch = patchText.match(/^Subject:\s*(?:\[PATCH[^\]]*\]\s*)?(.+)$/m);
+  const title = meta.title || (subjectMatch ? subjectMatch[1].trim() : `PR #${meta.pullNumber}`);
+  const author = meta.author || (authorMatch ? authorMatch[1].trim().replace(/<.*?>/, "").trim() : "contributor");
+  const rawFiles = patchText.split(/\ndiff --git a\//).slice(1);
+  if (rawFiles.length === 0) {
+    const rawDiffs = patchText.split(/^diff --git a\//m).filter((c) => c.trim().length > 0);
+    if (rawDiffs.length > 0) {
+      rawFiles.push(...rawDiffs);
+    }
+  }
+  let totalAdd = 0;
+  let totalDel = 0;
+  const files = rawFiles.map((chunk, idx) => {
+    const lines = chunk.split("\n");
+    const headerLine = lines[0] || "";
+    let filePath = headerLine.split(/\s+b\//)[0].trim();
+    if (!filePath || filePath.startsWith("---") || filePath.startsWith("+++")) {
+      filePath = `file-${idx + 1}`;
+    }
+    let addCount = 0;
+    let delCount = 0;
+    const baseLines = [];
+    const propLines = [];
+    let inHunk = false;
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith("@@")) {
+        inHunk = true;
+        continue;
+      }
+      if (!inHunk) continue;
+      if (line.startsWith("+")) {
+        addCount++;
+        propLines.push(line.slice(1));
+      } else if (line.startsWith("-")) {
+        delCount++;
+        baseLines.push(line.slice(1));
+      } else if (line.startsWith(" ")) {
+        baseLines.push(line.slice(1));
+        propLines.push(line.slice(1));
+      } else if (line.startsWith("\\ No newline")) {
+        continue;
+      } else {
+        baseLines.push(line);
+        propLines.push(line);
+      }
+    }
+    totalAdd += addCount;
+    totalDel += delCount;
+    const lang = detectLanguageFromPath(filePath);
+    return {
+      path: filePath,
+      language: lang,
+      summary: `+${addCount} / -${delCount} lines modified in ${filePath.split("/").pop()}`,
+      baseContent: baseLines.join("\n"),
+      proposedContent: propLines.join("\n"),
+      expectedAdditions: addCount,
+      expectedDeletions: delCount
+    };
+  });
+  return {
+    id: `gh-${meta.owner}-${meta.repo}-${meta.pullNumber}`,
+    number: meta.pullNumber,
+    title,
+    repository: `${meta.owner}/${meta.repo}`,
+    author,
+    sourceBranch: meta.branch || `pr-${meta.pullNumber}`,
+    targetBranch: "main",
+    status: "Open",
+    ciStatus: "Passed",
+    isSampleData: false,
+    filesChangedCount: files.length,
+    additionsCount: totalAdd,
+    deletionsCount: totalDel,
+    overview: `Pull request #${meta.pullNumber} imported from ${meta.owner}/${meta.repo}. Modifies ${files.length} files with +${totalAdd} / -${totalDel} diff changes.`,
+    purpose: title,
+    files
+  };
+}
+
 // server/api/_utils.ts
 async function parseJsonBody(req) {
   if (req.body && typeof req.body === "object") {
@@ -969,6 +1111,26 @@ async function handler(req, res) {
     if (req.method === "POST") {
       const body = await parseJsonBody(req);
       const config = getModelConfig();
+      if (url.includes("/github/pr")) {
+        const prUrl = body?.url || "";
+        const coords = parseGitHubPrUrl(prUrl);
+        if (!coords) {
+          sendJson(res, 400, { error: { message: "Invalid GitHub PR URL" } });
+          return;
+        }
+        const rawPatchUrl = `https://patch-diff.githubusercontent.com/raw/${coords.owner}/${coords.repo}/pull/${coords.pullNumber}.patch`;
+        const patchRes = await fetch(rawPatchUrl, { headers: { "User-Agent": "Gitvox" } });
+        if (!patchRes.ok) {
+          sendJson(res, patchRes.status, {
+            error: { message: `GitHub returned HTTP ${patchRes.status} for PR #${coords.pullNumber}` }
+          });
+          return;
+        }
+        const patchText = await patchRes.text();
+        const pullRequest = parseGitPatchToPullRequest(patchText, coords);
+        sendJson(res, 200, { pullRequest });
+        return;
+      }
       if (url.includes("/assistant")) {
         const input2 = validateAssistantRequest(body);
         const explanation2 = await requestAssistantExplanation(input2, config);
