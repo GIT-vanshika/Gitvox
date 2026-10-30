@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { AcousticSphere3D } from '../components/AcousticSphere3D';
 import { RouteId } from '../types/gitvox';
 
@@ -7,19 +7,6 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
-  const [voiceTestState, setVoiceTestState] = useState<'idle' | 'listening' | 'success'>('idle');
-
-  const handleTestVoiceCommand = () => {
-    if (voiceTestState !== 'idle') return;
-    setVoiceTestState('listening');
-    setTimeout(() => {
-      setVoiceTestState('success');
-      setTimeout(() => {
-        setVoiceTestState('idle');
-      }, 2400);
-    }, 1500);
-  };
-
   return (
     <div className="bg-surface text-on-surface font-body-md text-body-md min-h-screen selection:bg-primary/25 selection:text-primary">
       {/* Top Header */}
@@ -201,34 +188,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 >
                   <span className="material-symbols-outlined text-secondary text-[20px]">upload_file</span>
                   <span>Upload Code (ZIP / Git)</span>
-                </button>
-
-                <button
-                  onClick={handleTestVoiceCommand}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-primary font-telemetry-tag text-telemetry-tag uppercase tracking-wider border border-primary/30 transition-all cursor-pointer"
-                  type="button"
-                >
-                  {voiceTestState === 'idle' && (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                      <span>Try Voice Command</span>
-                      <span className="material-symbols-outlined text-[16px]">mic</span>
-                    </>
-                  )}
-                  {voiceTestState === 'listening' && (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></span>
-                      <span>Listening...</span>
-                      <span className="material-symbols-outlined text-[16px] text-primary">graphic_eq</span>
-                    </>
-                  )}
-                  {voiceTestState === 'success' && (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-secondary"></span>
-                      <span className="text-secondary">Navigated to auth.js:L9</span>
-                      <span className="material-symbols-outlined text-[16px] text-secondary">check</span>
-                    </>
-                  )}
                 </button>
               </div>
 
