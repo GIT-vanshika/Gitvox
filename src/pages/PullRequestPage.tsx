@@ -990,7 +990,7 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                   }
                 >
                   <span className="material-symbols-outlined text-[17px] group-hover:scale-110 transition-transform">
-                    {sidebarOpen ? 'dock_to_left' : 'view_sidebar'}
+                    {sidebarOpen ? 'keyboard_double_arrow_left' : 'view_sidebar'}
                   </span>
                 </button>
 
