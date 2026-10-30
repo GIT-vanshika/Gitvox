@@ -79,6 +79,7 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const [wrapLines, setWrapLines] = useState<boolean>(false);
   const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
   const splitContainerRef = useRef<HTMLDivElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [fileSearch, setFileSearch] = useState('');
   const [highlightedLineRange, setHighlightedLineRange] = useState<[number, number] | null>(null);
   const [mobileTab, setMobileTab] = useState<'files' | 'diff' | 'review'>('diff');
@@ -681,7 +682,13 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
         {/* Main Review Canvas Grid (Left Files, Right Inspector) */}
         <div className="max-w-[1720px] w-full mx-auto p-space-md lg:p-space-lg flex flex-col lg:flex-row gap-space-md items-start flex-1 min-h-0">
           {/* LEFT PANEL: Changed Files Explorer */}
-          <aside className="w-full lg:w-[320px] flex-shrink-0 flex flex-col gap-space-sm">
+          <aside
+            className={`transition-all duration-300 ease-in-out flex-shrink-0 flex flex-col gap-space-sm ${
+              sidebarOpen
+                ? 'w-full lg:w-[320px] opacity-100'
+                : 'w-0 lg:w-0 overflow-hidden opacity-0 pointer-events-none p-0 m-0 border-0'
+            }`}
+          >
             <div className="bg-surface-container-low rounded-xl p-space-md shadow-sm flex flex-col gap-space-sm border border-surface-container-high/60">
               {/* Files Title & Stats Bar */}
               <div className="flex items-center justify-between font-telemetry-tag text-telemetry-tag">
@@ -689,9 +696,19 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                   <span className="material-symbols-outlined text-[16px] text-primary">rule_folder</span>
                   CHANGED FILES ({pullRequest.filesChangedCount})
                 </span>
-                <span className="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                  {reviewedCount}/{pullRequest.filesChangedCount} done
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
+                    {reviewedCount}/{pullRequest.filesChangedCount} done
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
+                    title="Slide left sidebar away (Full code view)"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                  </button>
+                </div>
               </div>
 
               {/* Progress track */}
@@ -766,19 +783,27 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
           </aside>
 
           {/* RIGHT PANEL: Unified / Split Diff Studio (Excel-similar grid) */}
-          <main className="flex-1 w-full min-w-0 flex flex-col gap-space-sm">
+          <main className="flex-1 w-full min-w-0 flex flex-col gap-space-sm transition-all duration-300">
             {/* Diff File Header Ribbon */}
             <div className="w-full bg-surface-container-low rounded-t-xl px-space-md py-space-sm flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm shadow-sm border border-b-0 border-surface-container-high/60">
               <div className="flex items-center gap-space-sm min-w-0" ref={fileDropdownRef}>
-                {/* Workable Code Icon - Click to View in Live Workspace */}
+                {/* Slide Left Sidebar Toggle */}
                 <button
                   type="button"
-                  onClick={() => onNavigate('project', activeFile.path)}
-                  className="w-7 h-7 rounded bg-surface-container hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer shadow-sm group"
-                  title="Open full file in Live Workspace (Monaco Code Editor)"
+                  onClick={() => setSidebarOpen((prev) => !prev)}
+                  className={`w-7 h-7 rounded flex items-center justify-center flex-shrink-0 transition-all cursor-pointer shadow-sm border group ${
+                    !sidebarOpen
+                      ? 'bg-primary/20 text-primary border-primary/50 hover:bg-primary/30 shadow-primary/20'
+                      : 'bg-surface-container hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border-amber-500/30'
+                  }`}
+                  title={
+                    sidebarOpen
+                      ? 'Slide left bar to the left (Open coding part fully)'
+                      : 'Show changed files sidebar'
+                  }
                 >
                   <span className="material-symbols-outlined text-[17px] group-hover:scale-110 transition-transform">
-                    code
+                    {sidebarOpen ? 'dock_to_left' : 'view_sidebar'}
                   </span>
                 </button>
 
