@@ -78,3 +78,4 @@ index 3333..4444 100644
   assert.equal(pr.additionsCount, 3);
   assert.equal(pr.deletionsCount, 2);
 });
+

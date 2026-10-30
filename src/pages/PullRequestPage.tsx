@@ -9,6 +9,7 @@ import {
   toModelErrorInfo,
 } from '../services/modelService';
 import { renderHighlightedLine } from '../utils/syntaxHighlight';
+import { getFileIcon } from './ProjectWorkspacePage';
 import {
   AIExplanation,
   DiffHunk,
@@ -150,14 +151,6 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
   const isCurrentFileReviewed = Boolean(reviewedFiles[activeFile.path]);
 
   const reviewedPercent = Math.round((reviewedCount / pullRequest.files.length) * 100);
-
-  const getFileIcon = (filePath: string) => {
-    if (filePath.includes('test')) return 'experiment';
-    if (filePath.includes('token') || filePath.includes('auth')) return 'draft';
-    if (filePath.includes('routes')) return 'alt_route';
-    if (filePath.includes('validate')) return 'verified_user';
-    return 'code';
-  };
 
   const runModelExplanation = async (file: PRFileChange, hunk: DiffHunk) => {
     const requestId = ++modelRequestId.current;
@@ -643,74 +636,38 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                         setHighlightedLineRange(null);
                         setMobileTab('diff');
                       }}
-                      className={`group cursor-pointer p-space-sm rounded transition-all flex flex-col gap-1 ${
+                      className={`group cursor-pointer px-3 py-2 rounded flex items-center justify-between transition-all select-none ${
                         isSelected
-                          ? 'bg-surface-container-high border border-primary/30 shadow-sm'
-                          : 'hover:bg-surface-container-highest/60 text-on-surface-variant'
+                          ? 'bg-surface-container border border-primary/30 shadow-sm text-on-surface'
+                          : 'hover:bg-surface-container/60 text-on-surface-variant'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className={`material-symbols-outlined text-[17px] flex-shrink-0 ${
-                              isSelected ? 'text-amber-400' : 'text-on-surface-variant'
-                            }`}
-                          >
-                            {getFileIcon(file.path)}
-                          </span>
-                          <span
-                            className={`font-code-block text-[12px] truncate ${
-                              isSelected ? 'text-on-surface font-medium' : 'text-on-surface-variant group-hover:text-on-surface'
-                            }`}
-                          >
-                            {file.path}
-                          </span>
-                        </div>
-                        <span className="flex items-center gap-1 font-telemetry-tag text-[10px]">
-                          <span className="text-primary font-semibold">+{file.expectedAdditions}</span>
-                          <span className="text-error font-semibold">−{file.expectedDeletions}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isReviewed ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Reviewed"></span>
+                        ) : isSelected ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0"></span>
+                        ) : (
+                          <span className="w-1.5 h-1.5 shrink-0"></span>
+                        )}
+                        <span className="shrink-0 flex items-center justify-center">
+                          {getFileIcon(file.path)}
                         </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] font-telemetry-tag pl-6">
-                        <span className={isSelected ? 'text-violet-400 font-medium' : 'text-on-surface-variant'}>
-                          {isSelected ? 'Active Inspector' : isReviewed ? 'Reviewed' : 'Pending review'}
-                        </span>
-                        <label
-                          className="flex items-center gap-1 cursor-pointer text-on-surface-variant hover:text-on-surface"
-                          onClick={(e) => e.stopPropagation()}
+                        <span
+                          className={`font-code-block text-[12px] truncate ${
+                            isSelected ? 'text-on-surface font-semibold' : 'text-on-surface-variant group-hover:text-on-surface'
+                          }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isReviewed}
-                            onChange={() => onToggleFileReviewed(file.path)}
-                            className="accent-primary h-3.5 w-3.5 rounded cursor-pointer"
-                          />
-                          <span className="text-[11px]">reviewed</span>
-                        </label>
+                          {file.path}
+                        </span>
                       </div>
+                      <span className="flex items-center gap-1 font-telemetry-tag text-[10px] shrink-0 pl-2">
+                        <span className="text-primary font-semibold">+{file.expectedAdditions}</span>
+                        <span className="text-error font-semibold">−{file.expectedDeletions}</span>
+                      </span>
                     </div>
                   );
                 })}
-              </div>
-
-              {/* AI Reviewer Assistant Mini Card */}
-              <div className="mt-space-sm p-space-sm rounded bg-surface-container-highest/60 flex flex-col gap-1 border border-surface-container-high/40">
-                <div className="flex items-center gap-1 font-telemetry-tag text-[11px] text-tertiary font-semibold">
-                  <span className="material-symbols-outlined text-[14px]">psychology</span>
-                  <span>NEURAL SCAN VERDICT</span>
-                </div>
-                <p className="font-body-sm text-[12px] text-on-surface-variant leading-relaxed">
-                  Zero breaking schema mutations detected. Low regression risk across test suites.
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-primary text-[11px] font-telemetry-tag font-semibold">
-                    98.4% COVERAGE
-                  </span>
-                  <span className="text-secondary text-[11px] font-telemetry-tag font-semibold">
-                    OIDC COMPLIANT
-                  </span>
-                </div>
               </div>
             </div>
           </aside>
@@ -750,25 +707,9 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
             </div>
 
             {/* Diff File Commit / Context Summary */}
-            <div className="w-full px-space-md py-2 bg-surface-container-lowest font-body-sm text-body-sm text-on-surface-variant flex flex-wrap items-center justify-between gap-2 border-x border-surface-container-high/60">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="material-symbols-outlined text-secondary text-[16px] flex-shrink-0">info</span>
-                <span className="truncate">{activeFile.summary}</span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {activeDiff.hunks.map((hunk, idx) => (
-                  <button
-                    key={hunk.id}
-                    type="button"
-                    onClick={() => handleExplainHunkWithModel(activeFile, hunk)}
-                    className="flex items-center gap-1 font-telemetry-tag text-telemetry-tag text-primary hover:text-primary-fixed bg-primary/10 hover:bg-primary/20 px-2 py-1 rounded transition-colors cursor-pointer border border-primary/20"
-                    title={`Explain Hunk #${idx + 1} with AI`}
-                  >
-                    <span>Explain hunk #{idx + 1}</span>
-                    <span className="material-symbols-outlined text-[14px]">psychology</span>
-                  </button>
-                ))}
-              </div>
+            <div className="w-full px-space-md py-2 bg-surface-container-lowest font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2 border-x border-surface-container-high/60">
+              <span className="material-symbols-outlined text-secondary text-[16px] flex-shrink-0">info</span>
+              <span className="truncate">{activeFile.summary}</span>
             </div>
 
             {/* AI Model Explanation Card (if active) */}
@@ -928,68 +869,89 @@ export const PullRequestPage: React.FC<PullRequestPageProps> = ({
                   </tbody>
                 </table>
               ) : (
-                /* Split Diff View */
-                <div className="min-w-[800px] select-text">
-                  <div className="grid grid-cols-2 border-b border-surface-container-high/60 bg-surface-container-high/40 text-[11px] font-telemetry-tag uppercase text-outline select-none">
-                    <div className="border-r border-surface-container-high/60 px-3 py-1.5 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[14px]">history</span>
-                      <span>Base ({pullRequest.targetBranch})</span>
-                    </div>
-                    <div className="px-3 py-1.5 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[14px] text-amber-400">commit</span>
-                      <span>Proposed ({pullRequest.sourceBranch})</span>
-                    </div>
-                  </div>
+                /* Split Diff View - Fixed Table preventing overlap */
+                <div className="w-full overflow-x-auto select-text">
+                  <table className="w-full table-fixed border-collapse font-code-block text-[12px] min-w-[900px]">
+                    <colgroup>
+                      <col className="w-[50%]" />
+                      <col className="w-[50%]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b border-surface-container-high/60 bg-surface-container-high/40 text-[11px] font-telemetry-tag uppercase text-outline select-none">
+                        <th className="w-1/2 text-left border-r border-surface-container-high/60 px-3 py-1.5 font-semibold">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[14px]">history</span>
+                            <span>Base ({pullRequest.targetBranch})</span>
+                          </div>
+                        </th>
+                        <th className="w-1/2 text-left px-3 py-1.5 font-semibold">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[14px] text-amber-400">commit</span>
+                            <span>Proposed ({pullRequest.sourceBranch})</span>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeDiff.splitRows.map((row, idx) => {
+                        const isLeftDel = row.leftType === 'deleted';
+                        const isRightAdd = row.rightType === 'added';
 
-                  {activeDiff.splitRows.map((row, idx) => {
-                    const isLeftDel = row.leftType === 'deleted';
-                    const isRightAdd = row.rightType === 'added';
+                        return (
+                          <tr
+                            key={`${activeFile.path}-s-${idx}`}
+                            className="border-b border-surface-container-high/30 last:border-b-0 hover:bg-surface-container/20 transition-colors"
+                          >
+                            {/* Left: Base */}
+                            <td
+                              className={`w-1/2 align-top border-r border-surface-container-high/60 p-0 overflow-hidden ${
+                                isLeftDel ? 'bg-error/15 text-error' : ''
+                              }`}
+                            >
+                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-none">
+                                <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
+                                  {row.leftLineNumber ?? ''}
+                                </span>
+                                <span className="w-4 shrink-0 select-none text-center font-bold text-error">
+                                  {isLeftDel ? '−' : ' '}
+                                </span>
+                                <span
+                                  className={`whitespace-pre flex-1 leading-relaxed ${
+                                    isLeftDel ? 'line-through opacity-85' : 'text-on-surface'
+                                  }`}
+                                >
+                                  {row.leftContent !== null
+                                    ? renderHighlightedLine(row.leftContent, activeFile.language)
+                                    : ''}
+                                </span>
+                              </div>
+                            </td>
 
-                    return (
-                      <div
-                        key={`${activeFile.path}-s-${idx}`}
-                        className="grid grid-cols-2 border-b border-surface-container-high/30 last:border-b-0 font-code-block text-[13px]"
-                      >
-                        {/* Left: Base */}
-                        <div
-                          className={`flex min-w-0 items-start gap-2 border-r border-surface-container-high/60 px-2 py-0.5 ${
-                            isLeftDel ? 'bg-error/15 text-error' : 'hover:bg-surface-container/40'
-                          }`}
-                        >
-                          <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
-                            {row.leftLineNumber ?? ''}
-                          </span>
-                          <span className="w-4 shrink-0 select-none text-center font-bold text-error">
-                            {isLeftDel ? '−' : ' '}
-                          </span>
-                          <span className={`whitespace-pre min-w-0 flex-1 leading-relaxed ${isLeftDel ? 'line-through opacity-80' : ''}`}>
-                            {row.leftContent !== null
-                              ? renderHighlightedLine(row.leftContent, activeFile.language)
-                              : ''}
-                          </span>
-                        </div>
-
-                        {/* Right: Proposed */}
-                        <div
-                          className={`flex min-w-0 items-start gap-2 px-2 py-0.5 ${
-                            isRightAdd ? 'bg-primary/10 text-primary-fixed' : 'hover:bg-surface-container/40'
-                          }`}
-                        >
-                          <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
-                            {row.rightLineNumber ?? ''}
-                          </span>
-                          <span className="w-4 shrink-0 select-none text-center font-bold text-primary">
-                            {isRightAdd ? '+' : ' '}
-                          </span>
-                          <span className="whitespace-pre min-w-0 flex-1 leading-relaxed">
-                            {row.rightContent !== null
-                              ? renderHighlightedLine(row.rightContent, activeFile.language)
-                              : ''}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                            {/* Right: Proposed */}
+                            <td
+                              className={`w-1/2 align-top p-0 overflow-hidden ${
+                                isRightAdd ? 'bg-primary/10 text-primary-fixed' : ''
+                              }`}
+                            >
+                              <div className="flex items-start gap-2 px-2 py-0.5 overflow-x-auto scrollbar-none">
+                                <span className="w-8 shrink-0 select-none text-right font-telemetry-tag text-[11px] text-outline">
+                                  {row.rightLineNumber ?? ''}
+                                </span>
+                                <span className="w-4 shrink-0 select-none text-center font-bold text-primary">
+                                  {isRightAdd ? '+' : ' '}
+                                </span>
+                                <span className="whitespace-pre flex-1 leading-relaxed text-on-surface">
+                                  {row.rightContent !== null
+                                    ? renderHighlightedLine(row.rightContent, activeFile.language)
+                                    : ''}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
